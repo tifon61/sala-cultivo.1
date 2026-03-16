@@ -24,21 +24,24 @@
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col lg:flex-row justify-between items-center mb-8 gap-4">
             <div>
-                <h1 class="text-2xl font-extrabold tracking-tighter italic uppercase">SALA <span class="text-emerald-500 font-black text-3xl">MONITOREO</span></h1>
+                <h1 class="text-2xl font-extrabold tracking-tighter italic uppercase text-white">SALA <span class="text-emerald-500 font-black text-3xl">MONITOREO</span></h1>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] flex items-center gap-2">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · Refresco 5m
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · Análisis Histórico
                 </p>
             </div>
             
             <div class="glass px-4 py-2 flex flex-col md:flex-row gap-4 items-center">
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest text-center md:text-left">Fase Selección</span>
-                    <select id="faseCultivo" onchange="actualizarColores(ultimoVPD)" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400">
+                    <select id="faseCultivo" onchange="actualizarColores(ultimoVPD)" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
                         <option value="vegetativo">VEGETATIVO (0.8 - 1.2 kPa)</option>
                         <option value="floracion">FLORACIÓN (1.2 - 1.6 kPa)</option>
                     </select>
                 </div>
-                <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-transparent border-none text-xs focus:ring-0 text-slate-400 font-bold">
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest text-center md:text-left">Consultar Día</span>
+                    <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
+                </div>
             </div>
         </header>
 
@@ -53,35 +56,35 @@
                     <div class="text-6xl font-black my-2" id="val-vpd">--</div>
                     <div class="text-[10px] font-black uppercase mb-3" id="msg-vpd">kPa</div>
                     <div id="diag-vpd" class="text-[11px] font-bold leading-tight opacity-90 border-t border-black/10 pt-3 italic">
-                        Esperando datos para diagnóstico...
+                        Selecciona un día para analizar la eficiencia...
                     </div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">VPD (kPa)</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">Histórico DPV (kPa)</h3>
                     <canvas id="chartVpd"></canvas>
                 </div>
             </div>
 
             <div class="flex flex-col gap-4">
-                <div class="glass p-6 border-l-4 border-orange-500">
-                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-orange-400">Temperatura</span>
+                <div class="glass p-6 border-l-4 border-orange-500 h-full flex flex-col justify-center">
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-orange-400">Última Temperatura</span>
                     <div class="text-4xl font-bold my-2 text-white" id="val-temp">--°C</div>
-                    <div class="text-[10px] font-bold text-slate-500 uppercase" id="time-data">Sync...</div>
+                    <div class="text-[10px] font-bold text-slate-500 uppercase" id="time-data">Cargando...</div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-orange-500">Temperatura (°C)</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-orange-500">Histórico Temp (°C)</h3>
                     <canvas id="chartTemp"></canvas>
                 </div>
             </div>
 
             <div class="flex flex-col gap-4">
-                <div class="glass p-6 border-l-4 border-blue-500">
-                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-blue-400">Humedad Relativa</span>
+                <div class="glass p-6 border-l-4 border-blue-500 h-full flex flex-col justify-center">
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-blue-400">Última Humedad</span>
                     <div class="text-4xl font-bold my-2 text-white" id="val-hum">--%</div>
-                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">Activo</div>
+                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">Sensor Sincronizado</div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-blue-500">Humedad (%)</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-blue-500">Histórico Humedad (%)</h3>
                     <canvas id="chartHum"></canvas>
                 </div>
             </div>
@@ -106,41 +109,40 @@
         const card = document.getElementById('cardVpd');
         const msg = document.getElementById('msg-vpd');
         const diag = document.getElementById('diag-vpd');
-        
         const config = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
 
         card.classList.remove('rango-optimo', 'rango-alerta', 'rango-peligro', 'rango-frio');
         
         if (vpd < 0.4) { 
-            card.classList.add('rango-frio'); 
-            msg.innerText = "ALTA HUMEDAD";
-            diag.innerText = "Transpiración bloqueada. Riesgo de hongos y deficiencia de calcio por falta de flujo.";
+            card.classList.add('rango-frio'); msg.innerText = "ALTA HUMEDAD";
+            diag.innerText = "Transpiración bloqueada. Riesgo de hongos y falta de flujo mineral.";
         } else if (vpd < config.min) { 
-            card.classList.add('rango-alerta'); 
-            msg.innerText = "VPD BAJO";
-            diag.innerText = "Crecimiento lento. La planta no transpira suficiente para absorber nutrientes móviles.";
+            card.classList.add('rango-alerta'); msg.innerText = "VPD BAJO";
+            diag.innerText = "Crecimiento lento. La planta no tiene suficiente fuerza de succión.";
         } else if (vpd <= config.max) { 
-            card.classList.add('rango-optimo'); 
-            msg.innerText = "ESTADO ÓPTIMO";
-            diag.innerText = "Máxima eficiencia fotosintética y transpiración equilibrada. Crecimiento vigoroso.";
+            card.classList.add('rango-optimo'); msg.innerText = "ESTADO ÓPTIMO";
+            diag.innerText = "Eficiencia máxima. Las raíces y hojas trabajan en total armonía.";
         } else { 
-            card.classList.add('rango-peligro'); 
-            msg.innerText = "ESTRÉS HÍDRICO";
-            diag.innerText = "VPD ALTO: Los estomas se cierran para no deshidratarse. Crecimiento detenido.";
+            card.classList.add('rango-peligro'); msg.innerText = "ESTRÉS HÍDRICO";
+            diag.innerText = "VPD ALTO. Los estomas se cierran para proteger el agua interna.";
         }
     }
 
     async function cargarDatos() {
         const fecha = document.getElementById('fechaFiltro').value;
-        let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=60`;
-        if (fecha) url += `&start=${fecha}%2000:00:00&end=${fecha}%2023:59:59`;
+        // Pedimos 800 resultados para cubrir un día completo (aprox cada 2 mins)
+        let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=800`;
+        
+        if (fecha) {
+            url += `&start=${fecha}%2000:00:00&end=${fecha}%2023:59:59`;
+        }
 
         try {
             const res = await fetch(url);
             const data = await res.json();
             const feeds = data.feeds;
 
-            if (feeds.length > 0) {
+            if (feeds && feeds.length > 0) {
                 const u = feeds[feeds.length - 1];
                 const t = parseFloat(u.field1);
                 const h = parseFloat(u.field2);
@@ -149,12 +151,14 @@
                 document.getElementById('val-temp').innerText = t.toFixed(1) + "°C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + "%";
                 document.getElementById('val-vpd').innerText = ultimoVPD;
-                document.getElementById('time-data').innerText = `Sync: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                document.getElementById('time-data').innerText = `Día: ${fecha} | Final: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
 
                 actualizarColores(ultimoVPD);
                 dibujarGraficos(feeds);
+            } else {
+                alert("No se encontraron datos para la fecha seleccionada.");
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Error cargando ThingSpeak:", e); }
     }
 
     function createChartConfig(labels, data, color) {
@@ -165,53 +169,40 @@
                 datasets: [{
                     data: data,
                     borderColor: color,
-                    borderWidth: 2,
-                    tension: 0.4,
-                    pointRadius: 2,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: color,
+                    borderWidth: 1.5,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
                     fill: true,
-                    backgroundColor: color.replace('1)', '0.05)')
+                    backgroundColor: color.replace('1)', '0.03)')
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
-                },
+                interaction: { intersect: false, mode: 'index' },
                 scales: {
                     x: { 
                         type: 'time', 
                         time: { 
-                            unit: 'hour', 
-                            displayFormats: { hour: 'HH:mm' },
-                            stepSize: 1 // Muestra todas las horas posibles
+                            unit: 'hour',
+                            displayFormats: { hour: 'HH:mm' }
                         },
                         grid: { display: true, color: 'rgba(255,255,255,0.02)' },
-                        ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 0 }
+                        ticks: { color: '#475569', font: { size: 9 } }
                     },
                     y: { 
                         grid: { color: 'rgba(255,255,255,0.03)' }, 
-                        ticks: { color: '#64748b', font: { size: 9 } } 
+                        ticks: { color: '#475569', font: { size: 9 } } 
                     }
                 },
                 plugins: { 
                     legend: { display: false },
                     tooltip: {
                         enabled: true,
-                        backgroundColor: 'rgba(2, 6, 23, 0.9)',
-                        titleFont: { size: 12, weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        padding: 10,
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1,
-                        displayColors: false,
+                        backgroundColor: 'rgba(2, 6, 23, 0.95)',
                         callbacks: {
-                            label: function(context) {
-                                return ` Valor: ${context.parsed.y} `;
-                            }
+                            label: (ctx) => ` Valor: ${ctx.parsed.y}`
                         }
                     }
                 }
@@ -225,19 +216,25 @@
         const tempData = feeds.map(f => parseFloat(f.field1));
         const humData = feeds.map(f => parseFloat(f.field2));
 
-        const chartConfigs = {
+        const configs = {
             chartVpd: createChartConfig(labels, vpdData, 'rgba(16, 185, 129, 1)'),
             chartTemp: createChartConfig(labels, tempData, 'rgba(249, 115, 22, 1)'),
             chartHum: createChartConfig(labels, humData, 'rgba(59, 130, 246, 1)')
         };
 
-        Object.keys(chartConfigs).forEach(id => {
+        Object.keys(configs).forEach(id => {
             if (charts[id]) charts[id].destroy();
-            charts[id] = new Chart(document.getElementById(id), chartConfigs[id]);
+            charts[id] = new Chart(document.getElementById(id), configs[id]);
         });
     }
 
-    setInterval(cargarDatos, 300000);
+    // El auto-refresco solo se activa si estamos viendo el día de hoy
+    setInterval(() => {
+        const hoy = new Date().toISOString().split('T')[0];
+        const seleccionada = document.getElementById('fechaFiltro').value;
+        if (hoy === seleccionada) cargarDatos();
+    }, 300000);
+
     document.getElementById('fechaFiltro').value = new Date().toISOString().split('T')[0];
     lucide.createIcons();
     cargarDatos();

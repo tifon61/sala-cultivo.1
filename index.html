@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoreo | Sala</title>
+    <title>Monitoreo | Sala de Cultivo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -22,9 +22,11 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 24px;
         }
-        .vpd-gradient {
-            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-        }
+        /* Estados de los umbrales */
+        .rango-optimo { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #020617; }
+        .rango-alerta { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #020617; }
+        .rango-peligro { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #f8fafc; }
+        .rango-frio { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #f8fafc; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -35,9 +37,15 @@
                 <h1 class="text-3xl font-extrabold tracking-tight text-white italic">
                     Variables <span class="text-emerald-400">Monitoreo</span>
                 </h1>
-                <p class="text-slate-500 font-medium tracking-widest uppercase text-xs">Canal: 2685796 |Moviendo la tierra</p>
+                <p class="text-slate-500 font-medium tracking-widest uppercase text-xs">Canal: 2685796 | Moviendo la tierra</p>
+                <div id="status-refresh" class="text-[10px] text-emerald-500 mt-1 font-bold animate-pulse">● SISTEMA EN VIVO</div>
             </div>
-            <div class="glass px-6 py-3 flex gap-4 items-center">
+            
+            <div class="glass px-6 py-3 flex flex-wrap gap-4 items-center justify-center">
+                <select id="faseCultivo" onchange="actualizarColores(ultimoVPD)" class="bg-slate-900 text-xs border-none rounded-lg p-2 outline-none focus:ring-1 focus:ring-emerald-500">
+                    <option value="vegetativo">FASE: VEGETATIVO (0.8 - 1.2)</option>
+                    <option value="floracion">FASE: FLORACIÓN (1.2 - 1.6)</option>
+                </select>
                 <input type="date" id="fechaFiltro" class="bg-transparent border-none text-sm focus:ring-0">
                 <button onclick="cargarDatos()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20">
                     ACTUALIZAR
@@ -46,27 +54,27 @@
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="glass p-6 border-l-4 border-emerald-500 vpd-gradient shadow-2xl shadow-emerald-500/10 text-slate-950">
+            <div id="cardVpd" class="glass p-6 border-l-4 border-emerald-500 transition-all duration-500 shadow-2xl">
                 <div class="flex justify-between items-center mb-2">
-                    <span class="font-bold text-xs uppercase opacity-70">Déficit Presión Vapor</span>
+                    <span class="font-bold text-xs uppercase opacity-70 italic">Déficit Presión Vapor</span>
                     <i data-lucide="wind" class="w-5 h-5 opacity-70"></i>
                 </div>
-                <div class="text-5xl font-black mb-1" id="val-vpd">--</div>
-                <div class="text-sm font-bold opacity-70">kPa (Valor Actual)</div>
+                <div class="text-6xl font-black mb-1" id="val-vpd">--</div>
+                <div class="text-sm font-bold opacity-70" id="msg-vpd">kPa (Valor Actual)</div>
             </div>
 
             <div class="glass p-6">
                 <div class="flex justify-between items-center mb-4 text-slate-400">
-                    <span class="font-bold text-xs uppercase">Temperatura</span>
+                    <span class="font-bold text-xs uppercase italic">Temperatura</span>
                     <i data-lucide="thermometer" class="w-4 h-4 text-orange-400"></i>
                 </div>
                 <div class="text-3xl font-bold" id="val-temp">-- °C</div>
-                <div class="text-xs text-slate-500 mt-2 italic" id="time-data">Esperando sincronización...</div>
+                <div class="text-xs text-slate-500 mt-2 italic" id="time-data">Sincronizando...</div>
             </div>
 
             <div class="glass p-6">
                 <div class="flex justify-between items-center mb-4 text-slate-400">
-                    <span class="font-bold text-xs uppercase">Humedad Relativa</span>
+                    <span class="font-bold text-xs uppercase italic">Humedad Relativa</span>
                     <i data-lucide="droplets" class="w-4 h-4 text-blue-400"></i>
                 </div>
                 <div class="text-3xl font-bold" id="val-hum">-- %</div>
@@ -77,7 +85,7 @@
         <div class="glass p-8">
             <div class="flex items-center gap-3 mb-8">
                 <div class="w-2 h-8 bg-emerald-500 rounded-full"></div>
-                <h3 class="text-xl font-bold">Histórico de VPD & Temperatura</h3>
+                <h3 class="text-xl font-bold italic text-white uppercase tracking-tighter">Historial de precisión</h3>
             </div>
             <div class="h-[450px]">
                 <canvas id="chartVpd"></canvas>
@@ -91,24 +99,48 @@
     const CHANNEL_ID = 2685796;
     const API_KEY = "P3H82TMM9GH1NS26";
     let chartInstance = null;
+    let ultimoVPD = 0;
 
-    // Fórmula para calcular VPD (Déficit de Presión de Vapor)
     function calcularVPD(temp, hum) {
-        // Presión de vapor de saturación (SVP) en kPa
         const svp = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        // Presión de vapor actual (AVP)
         const avp = svp * (hum / 100);
-        // VPD es la diferencia
-        return (svp - avp).toFixed(2);
+        return parseFloat((svp - avp).toFixed(2));
+    }
+
+    function actualizarColores(vpd) {
+        const fase = document.getElementById('faseCultivo').value;
+        const card = document.getElementById('cardVpd');
+        const msg = document.getElementById('msg-vpd');
+        
+        // Definición de rangos según la fase
+        const rangos = {
+            vegetativo: { min: 0.8, max: 1.2 },
+            floracion: { min: 1.2, max: 1.6 }
+        };
+
+        const config = rangos[fase];
+        card.classList.remove('rango-optimo', 'rango-alerta', 'rango-peligro', 'rango-frio');
+
+        if (vpd < 0.4) {
+            card.classList.add('rango-frio');
+            msg.innerText = "RIESGO: MUCHA HUMEDAD";
+        } else if (vpd < config.min) {
+            card.classList.add('rango-alerta');
+            msg.innerText = "VPD BAJO (TRANSPIRACIÓN LENTA)";
+        } else if (vpd >= config.min && vpd <= config.max) {
+            card.classList.add('rango-optimo');
+            msg.innerText = "ESTADO ÓPTIMO";
+        } else {
+            card.classList.add('rango-peligro');
+            msg.innerText = "VPD ALTO (ESTRÉS HÍDRICO)";
+        }
     }
 
     async function cargarDatos() {
         const fecha = document.getElementById('fechaFiltro').value;
         let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=100`;
         
-        if (fecha) {
-            url += `&start=${fecha}%2000:00:00&end=${fecha}%2023:59:59`;
-        }
+        if (fecha) url += `&start=${fecha}%2000:00:00&end=${fecha}%2023:59:59`;
 
         try {
             const res = await fetch(url);
@@ -119,13 +151,14 @@
                 const ultimo = feeds[feeds.length - 1];
                 const t = parseFloat(ultimo.field1);
                 const h = parseFloat(ultimo.field2);
-                const vpd = calcularVPD(t, h);
+                ultimoVPD = calcularVPD(t, h);
 
                 document.getElementById('val-temp').innerText = t.toFixed(1) + " °C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + " %";
-                document.getElementById('val-vpd').innerText = vpd;
-                document.getElementById('time-data').innerText = `Último registro: ${new Date(ultimo.created_at).toLocaleTimeString()}`;
+                document.getElementById('val-vpd').innerText = ultimoVPD;
+                document.getElementById('time-data').innerText = `Sync: ${new Date(ultimo.created_at).toLocaleTimeString()}`;
 
+                actualizarColores(ultimoVPD);
                 actualizarGrafico(feeds);
             }
         } catch (e) { console.error("Error:", e); }
@@ -133,7 +166,6 @@
 
     function actualizarGrafico(feeds) {
         const ctx = document.getElementById('chartVpd').getContext('2d');
-        
         const labels = feeds.map(f => new Date(f.created_at));
         const vpdData = feeds.map(f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)));
         const tempData = feeds.map(f => parseFloat(f.field1));
@@ -153,7 +185,7 @@
                         tension: 0.4,
                         pointRadius: 0,
                         fill: true,
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
                         yAxisID: 'y'
                     },
                     {
@@ -172,30 +204,17 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: {
-                        type: 'time',
-                        time: { unit: 'hour' },
-                        grid: { display: false },
-                        ticks: { color: '#64748b' }
-                    },
-                    y: {
-                        title: { display: true, text: 'VPD (kPa)', color: '#10b981' },
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#64748b' }
-                    },
-                    y1: {
-                        position: 'right',
-                        title: { display: true, text: 'Temp (°C)', color: '#f97316' },
-                        grid: { display: false },
-                        ticks: { color: '#64748b' }
-                    }
+                    x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { color: '#64748b' } },
+                    y: { title: { display: true, text: 'VPD (kPa)', color: '#10b981' }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                    y1: { position: 'right', title: { display: true, text: 'Temp (°C)', color: '#f97316' }, grid: { display: false }, ticks: { color: '#64748b' } }
                 },
-                plugins: {
-                    legend: { labels: { color: '#f8fafc' } }
-                }
+                plugins: { legend: { labels: { color: '#f8fafc', font: { weight: 'bold' } } } }
             }
         });
     }
+
+    // AUTO-REFRESH: Ejecutar cargarDatos cada 5 minutos (300,000 ms)
+    setInterval(cargarDatos, 300000);
 
     document.getElementById('fechaFiltro').value = new Date().toISOString().split('T')[0];
     cargarDatos();

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambiente|sala</title>
+    <title>Ambiente | Sala de Cultivo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -16,7 +16,7 @@
         .rango-alerta { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #020617; }
         .rango-peligro { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #f8fafc; }
         .rango-frio { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #f8fafc; }
-        canvas { max-height: 250px !important; }
+        canvas { max-height: 250px !important; cursor: crosshair; }
     </style>
 </head>
 <body class="p-4 md:p-6">
@@ -24,18 +24,21 @@
     <div class="max-w-7xl mx-auto">
         <header class="flex flex-col lg:flex-row justify-between items-center mb-8 gap-4">
             <div>
-                <h1 class="text-2xl font-extrabold tracking-tighter italic uppercase">SALA <span class="text-emerald-500">MONITOREO</span></h1>
+                <h1 class="text-2xl font-extrabold tracking-tighter italic uppercase">SALA <span class="text-emerald-500 font-black text-3xl">MONITOREO</span></h1>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] flex items-center gap-2">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra-Actualización Automática cada 5m
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · Refresco 5m
                 </p>
             </div>
             
-            <div class="glass px-4 py-2 flex gap-4 items-center">
-                <select id="faseCultivo" onchange="actualizarColores(ultimoVPD)" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400">
-                    <option value="vegetativo">VEGETATIVO</option>
-                    <option value="floracion">FLORACIÓN</option>
-                </select>
-                <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-transparent border-none text-xs focus:ring-0">
+            <div class="glass px-4 py-2 flex flex-col md:flex-row gap-4 items-center">
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest text-center md:text-left">Fase Selección</span>
+                    <select id="faseCultivo" onchange="actualizarColores(ultimoVPD)" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400">
+                        <option value="vegetativo">VEGETATIVO (0.8 - 1.2 kPa)</option>
+                        <option value="floracion">FLORACIÓN (1.2 - 1.6 kPa)</option>
+                    </select>
+                </div>
+                <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-transparent border-none text-xs focus:ring-0 text-slate-400 font-bold">
             </div>
         </header>
 
@@ -43,9 +46,15 @@
             
             <div class="flex flex-col gap-4">
                 <div id="cardVpd" class="glass p-6 transition-all duration-500 shadow-xl border-l-4 border-emerald-500">
-                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest">Déficit Presión Vapor</span>
-                    <div class="text-5xl font-black my-2" id="val-vpd">--</div>
-                    <div class="text-[10px] font-bold uppercase opacity-80" id="msg-vpd">kPa</div>
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black uppercase opacity-60 tracking-widest">Déficit Presión Vapor</span>
+                        <i data-lucide="wind" class="w-4 h-4 opacity-40"></i>
+                    </div>
+                    <div class="text-6xl font-black my-2" id="val-vpd">--</div>
+                    <div class="text-[10px] font-black uppercase mb-3" id="msg-vpd">kPa</div>
+                    <div id="diag-vpd" class="text-[11px] font-bold leading-tight opacity-90 border-t border-black/10 pt-3 italic">
+                        Esperando datos para diagnóstico...
+                    </div>
                 </div>
                 <div class="glass p-5">
                     <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">VPD (kPa)</h3>
@@ -55,8 +64,8 @@
 
             <div class="flex flex-col gap-4">
                 <div class="glass p-6 border-l-4 border-orange-500">
-                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest">Temperatura</span>
-                    <div class="text-4xl font-bold my-2" id="val-temp">--°C</div>
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-orange-400">Temperatura</span>
+                    <div class="text-4xl font-bold my-2 text-white" id="val-temp">--°C</div>
                     <div class="text-[10px] font-bold text-slate-500 uppercase" id="time-data">Sync...</div>
                 </div>
                 <div class="glass p-5">
@@ -67,8 +76,8 @@
 
             <div class="flex flex-col gap-4">
                 <div class="glass p-6 border-l-4 border-blue-500">
-                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest">Humedad Relativa</span>
-                    <div class="text-4xl font-bold my-2" id="val-hum">--%</div>
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-blue-400">Humedad Relativa</span>
+                    <div class="text-4xl font-bold my-2 text-white" id="val-hum">--%</div>
                     <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">Activo</div>
                 </div>
                 <div class="glass p-5">
@@ -96,13 +105,29 @@
         const fase = document.getElementById('faseCultivo').value;
         const card = document.getElementById('cardVpd');
         const msg = document.getElementById('msg-vpd');
+        const diag = document.getElementById('diag-vpd');
+        
         const config = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
 
         card.classList.remove('rango-optimo', 'rango-alerta', 'rango-peligro', 'rango-frio');
-        if (vpd < 0.4) { card.classList.add('rango-frio'); msg.innerText = "ALTA HUMEDAD"; }
-        else if (vpd < config.min) { card.classList.add('rango-alerta'); msg.innerText = "VPD BAJO"; }
-        else if (vpd <= config.max) { card.classList.add('rango-optimo'); msg.innerText = "ESTADO ÓPTIMO"; }
-        else { card.classList.add('rango-peligro'); msg.innerText = "ESTRÉS HÍDRICO"; }
+        
+        if (vpd < 0.4) { 
+            card.classList.add('rango-frio'); 
+            msg.innerText = "ALTA HUMEDAD";
+            diag.innerText = "Transpiración bloqueada. Riesgo de hongos y deficiencia de calcio por falta de flujo.";
+        } else if (vpd < config.min) { 
+            card.classList.add('rango-alerta'); 
+            msg.innerText = "VPD BAJO";
+            diag.innerText = "Crecimiento lento. La planta no transpira suficiente para absorber nutrientes móviles.";
+        } else if (vpd <= config.max) { 
+            card.classList.add('rango-optimo'); 
+            msg.innerText = "ESTADO ÓPTIMO";
+            diag.innerText = "Máxima eficiencia fotosintética y transpiración equilibrada. Crecimiento vigoroso.";
+        } else { 
+            card.classList.add('rango-peligro'); 
+            msg.innerText = "ESTRÉS HÍDRICO";
+            diag.innerText = "VPD ALTO: Los estomas se cierran para no deshidratarse. Crecimiento detenido.";
+        }
     }
 
     async function cargarDatos() {
@@ -124,7 +149,7 @@
                 document.getElementById('val-temp').innerText = t.toFixed(1) + "°C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + "%";
                 document.getElementById('val-vpd').innerText = ultimoVPD;
-                document.getElementById('time-data').innerText = `Hora: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                document.getElementById('time-data').innerText = `Sync: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
 
                 actualizarColores(ultimoVPD);
                 dibujarGraficos(feeds);
@@ -142,7 +167,9 @@
                     borderColor: color,
                     borderWidth: 2,
                     tension: 0.4,
-                    pointRadius: 0,
+                    pointRadius: 2,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: color,
                     fill: true,
                     backgroundColor: color.replace('1)', '0.05)')
                 }]
@@ -150,19 +177,44 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
                 scales: {
                     x: { 
                         type: 'time', 
-                        time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
-                        grid: { display: false },
-                        ticks: { color: '#475569', font: { size: 9 }, maxRotation: 0 }
+                        time: { 
+                            unit: 'hour', 
+                            displayFormats: { hour: 'HH:mm' },
+                            stepSize: 1 // Muestra todas las horas posibles
+                        },
+                        grid: { display: true, color: 'rgba(255,255,255,0.02)' },
+                        ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 0 }
                     },
                     y: { 
                         grid: { color: 'rgba(255,255,255,0.03)' }, 
-                        ticks: { color: '#475569', font: { size: 9 } } 
+                        ticks: { color: '#64748b', font: { size: 9 } } 
                     }
                 },
-                plugins: { legend: { display: false } }
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: 'rgba(2, 6, 23, 0.9)',
+                        titleFont: { size: 12, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        padding: 10,
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return ` Valor: ${context.parsed.y} `;
+                            }
+                        }
+                    }
+                }
             }
         };
     }

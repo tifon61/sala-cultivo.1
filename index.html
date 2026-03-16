@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambiente | Sala de Cultivo</title>
+    <title>Ambiente | Monitor Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.1"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -26,20 +27,20 @@
             <div>
                 <h1 class="text-2xl font-extrabold tracking-tighter italic uppercase text-white">SALA <span class="text-emerald-500 font-black text-3xl">MONITOREO</span></h1>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] flex items-center gap-2">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · Análisis Histórico
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · Histórico 24h
                 </p>
             </div>
             
             <div class="glass px-4 py-2 flex flex-col md:flex-row gap-4 items-center">
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest text-center md:text-left">Fase Selección</span>
-                    <select id="faseCultivo" onchange="actualizarColores(ultimoVPD)" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fase Cultivo</span>
+                    <select id="faseCultivo" onchange="cargarDatos()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
                         <option value="vegetativo">VEGETATIVO (0.8 - 1.2 kPa)</option>
                         <option value="floracion">FLORACIÓN (1.2 - 1.6 kPa)</option>
                     </select>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest text-center md:text-left">Consultar Día</span>
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fecha de Análisis</span>
                     <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
                 </div>
             </div>
@@ -56,35 +57,35 @@
                     <div class="text-6xl font-black my-2" id="val-vpd">--</div>
                     <div class="text-[10px] font-black uppercase mb-3" id="msg-vpd">kPa</div>
                     <div id="diag-vpd" class="text-[11px] font-bold leading-tight opacity-90 border-t border-black/10 pt-3 italic">
-                        Selecciona un día para analizar la eficiencia...
+                        Analizando parámetros de transpiración...
                     </div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">Histórico DPV (kPa)</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">DPV c/ Límites de Fase</h3>
                     <canvas id="chartVpd"></canvas>
                 </div>
             </div>
 
             <div class="flex flex-col gap-4">
-                <div class="glass p-6 border-l-4 border-orange-500 h-full flex flex-col justify-center">
+                <div class="glass p-6 border-l-4 border-orange-500 h-[160px] flex flex-col justify-center">
                     <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-orange-400">Última Temperatura</span>
                     <div class="text-4xl font-bold my-2 text-white" id="val-temp">--°C</div>
-                    <div class="text-[10px] font-bold text-slate-500 uppercase" id="time-data">Cargando...</div>
+                    <div class="text-[10px] font-bold text-slate-500 uppercase" id="time-data">Sync...</div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-orange-500">Histórico Temp (°C)</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-orange-500">Temperatura (°C)</h3>
                     <canvas id="chartTemp"></canvas>
                 </div>
             </div>
 
             <div class="flex flex-col gap-4">
-                <div class="glass p-6 border-l-4 border-blue-500 h-full flex flex-col justify-center">
+                <div class="glass p-6 border-l-4 border-blue-500 h-[160px] flex flex-col justify-center">
                     <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-blue-400">Última Humedad</span>
                     <div class="text-4xl font-bold my-2 text-white" id="val-hum">--%</div>
-                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">Sensor Sincronizado</div>
+                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">Activo</div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-blue-500">Histórico Humedad (%)</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-blue-500">Humedad (%)</h3>
                     <canvas id="chartHum"></canvas>
                 </div>
             </div>
@@ -115,22 +116,21 @@
         
         if (vpd < 0.4) { 
             card.classList.add('rango-frio'); msg.innerText = "ALTA HUMEDAD";
-            diag.innerText = "Transpiración bloqueada. Riesgo de hongos y falta de flujo mineral.";
+            diag.innerText = "Transpiración bloqueada. Riesgo de hongos y mala absorción de calcio.";
         } else if (vpd < config.min) { 
-            card.classList.add('rango-alerta'); msg.innerText = "VPD BAJO";
-            diag.innerText = "Crecimiento lento. La planta no tiene suficiente fuerza de succión.";
+            card.classList.add('rango-alerta'); msg.innerText = "DPV BAJO";
+            diag.innerText = "Baja presión de succión. La planta crece lento por poca transpiración.";
         } else if (vpd <= config.max) { 
             card.classList.add('rango-optimo'); msg.innerText = "ESTADO ÓPTIMO";
-            diag.innerText = "Eficiencia máxima. Las raíces y hojas trabajan en total armonía.";
+            diag.innerText = "Intercambio gaseoso ideal. Máxima eficiencia fotosintética.";
         } else { 
             card.classList.add('rango-peligro'); msg.innerText = "ESTRÉS HÍDRICO";
-            diag.innerText = "VPD ALTO. Los estomas se cierran para proteger el agua interna.";
+            diag.innerText = "DPV ALTO. Los estomas se cierran para evitar deshidratación. Crecimiento nulo.";
         }
     }
 
     async function cargarDatos() {
         const fecha = document.getElementById('fechaFiltro').value;
-        // Pedimos 800 resultados para cubrir un día completo (aprox cada 2 mins)
         let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=800`;
         
         if (fecha) {
@@ -151,30 +151,31 @@
                 document.getElementById('val-temp').innerText = t.toFixed(1) + "°C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + "%";
                 document.getElementById('val-vpd').innerText = ultimoVPD;
-                document.getElementById('time-data').innerText = `Día: ${fecha} | Final: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                document.getElementById('time-data').innerText = `Día: ${fecha} | Registro: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
 
                 actualizarColores(ultimoVPD);
                 dibujarGraficos(feeds);
-            } else {
-                alert("No se encontraron datos para la fecha seleccionada.");
             }
-        } catch (e) { console.error("Error cargando ThingSpeak:", e); }
+        } catch (e) { console.error(e); }
     }
 
-    function createChartConfig(labels, data, color) {
-        return {
+    function createChartConfig(labels, data, color, chartId) {
+        const fase = document.getElementById('faseCultivo').value;
+        const limits = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
+
+        const config = {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
                     data: data,
                     borderColor: color,
-                    borderWidth: 1.5,
+                    borderWidth: 2,
                     tension: 0.3,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
+                    pointHoverRadius: 6,
                     fill: true,
-                    backgroundColor: color.replace('1)', '0.03)')
+                    backgroundColor: color.replace('1)', '0.05)')
                 }]
             },
             options: {
@@ -184,30 +185,64 @@
                 scales: {
                     x: { 
                         type: 'time', 
-                        time: { 
-                            unit: 'hour',
-                            displayFormats: { hour: 'HH:mm' }
-                        },
-                        grid: { display: true, color: 'rgba(255,255,255,0.02)' },
-                        ticks: { color: '#475569', font: { size: 9 } }
+                        time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+                        grid: { color: 'rgba(255,255,255,0.02)' },
+                        ticks: { color: '#64748b', font: { size: 9 } }
                     },
                     y: { 
-                        grid: { color: 'rgba(255,255,255,0.03)' }, 
-                        ticks: { color: '#475569', font: { size: 9 } } 
+                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                        ticks: { color: '#64748b', font: { size: 9 } } 
                     }
                 },
                 plugins: { 
                     legend: { display: false },
                     tooltip: {
                         enabled: true,
-                        backgroundColor: 'rgba(2, 6, 23, 0.95)',
-                        callbacks: {
-                            label: (ctx) => ` Valor: ${ctx.parsed.y}`
-                        }
+                        backgroundColor: 'rgba(2, 6, 23, 0.9)',
+                        padding: 10
                     }
                 }
             }
         };
+
+        if (chartId === 'chartVpd') {
+            config.options.plugins.annotation = {
+                annotations: {
+                    lineMin: {
+                        type: 'line',
+                        yMin: limits.min,
+                        yMax: limits.min,
+                        borderColor: 'rgba(16, 185, 129, 0.4)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        label: {
+                            display: true,
+                            content: 'MIN ' + limits.min,
+                            position: 'start',
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            font: { size: 9 }
+                        }
+                    },
+                    lineMax: {
+                        type: 'line',
+                        yMin: limits.max,
+                        yMax: limits.max,
+                        borderColor: 'rgba(239, 68, 68, 0.3)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        label: {
+                            display: true,
+                            content: 'MAX ' + limits.max,
+                            position: 'end',
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            font: { size: 9 }
+                        }
+                    }
+                }
+            };
+        }
+
+        return config;
     }
 
     function dibujarGraficos(feeds) {
@@ -217,9 +252,9 @@
         const humData = feeds.map(f => parseFloat(f.field2));
 
         const configs = {
-            chartVpd: createChartConfig(labels, vpdData, 'rgba(16, 185, 129, 1)'),
-            chartTemp: createChartConfig(labels, tempData, 'rgba(249, 115, 22, 1)'),
-            chartHum: createChartConfig(labels, humData, 'rgba(59, 130, 246, 1)')
+            chartVpd: createChartConfig(labels, vpdData, 'rgba(16, 185, 129, 1)', 'chartVpd'),
+            chartTemp: createChartConfig(labels, tempData, 'rgba(249, 115, 22, 1)', 'chartTemp'),
+            chartHum: createChartConfig(labels, humData, 'rgba(59, 130, 246, 1)', 'chartHum')
         };
 
         Object.keys(configs).forEach(id => {
@@ -228,11 +263,9 @@
         });
     }
 
-    // El auto-refresco solo se activa si estamos viendo el día de hoy
     setInterval(() => {
         const hoy = new Date().toISOString().split('T')[0];
-        const seleccionada = document.getElementById('fechaFiltro').value;
-        if (hoy === seleccionada) cargarDatos();
+        if (document.getElementById('fechaFiltro').value === hoy) cargarDatos();
     }, 300000);
 
     document.getElementById('fechaFiltro').value = new Date().toISOString().split('T')[0];

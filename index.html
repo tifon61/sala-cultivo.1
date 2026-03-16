@@ -3,763 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Automatización de Sala de Cultivo</title>
+    <title>VPD Monitor | Estación Experimental</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top left, #0f172a, #020617);
+            color: #f8fafc;
+            min-height: 100vh;
         }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 20px;
-            text-align: center;
+        .glass {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
         }
-        main {
-            padding: 20px;
-        }
-        .center-section {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .quadrant {
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .cycle-info {
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .cycle-info p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-        .program-section {
-            margin-top: 20px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            margin: 5px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .notification {
-            display: none;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px;
-            border-radius: 5px;
-            z-index: 1000;
+        .vpd-gradient {
+            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
         }
     </style>
 </head>
-<body>
-    <header>
-        <h1>Automatización de Sala de Cultivo</h1>
-    </header>
+<body class="p-4 md:p-8">
 
-    <main>
-        <!-- Sección de Datos en Tiempo Real -->
-        <section id="realtime-data" class="center-section">
-            <h2>Datos Actuales</h2>
-            <p>Temperatura: <span id="temperature--span">--</span> °C</p>
-            <p>Humedad Ambiente: <span id="humidity--span">--</span> %</p>
-            <p>Déficit de Presión de Vapor: <span id="dpv--span">--</span> kPa</p>
-            <p>Humedad del Suelo: <span id="soil-moisture--span">--</span> %</p>
-        </section>
+    <div class="max-w-6xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl font-extrabold tracking-tight text-white italic">
+                    VPD <span class="text-emerald-400">ANALYSIS</span>
+                </h1>
+                <p class="text-slate-500 font-medium tracking-widest uppercase text-xs">Canal: 2685796 | Monitoreo de Estrés</p>
+            </div>
+            <div class="glass px-6 py-3 flex gap-4 items-center">
+                <input type="date" id="fechaFiltro" class="bg-transparent border-none text-sm focus:ring-0">
+                <button onclick="cargarDatos()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-500/20">
+                    ACTUALIZAR
+                </button>
+            </div>
+        </header>
 
-        <!-- Configuración de Luces -->
-        <section id="lights-config" class="quadrant">
-            <h2>Configuración de Luces</h2>
-            <p>Estado: <span id="lights-status">Apagadas</span></p>
-            <button id="lights-manual-on">Modo Manual Prendido</button>
-            <button id="lights-manual-off">Modo Manual Apagado</button>
-
-            <div class="program-section">
-                <h3>Programación de Luces</h3>
-                <label for="light-on-hours">Horas Encendido:</label>
-                <input type="number" id="light-on-hours" min="0" max="24" value="1">
-                <label for="light-off-hours">Horas Apagado:</label>
-                <input type="number" id="light-off-hours" min="0" max="24" value="1">
-                <button id="lights-save-program">Guardar Programa</button>
-                <button id="lights-program-mode">Activar Modo Programado</button>
-                <div class="cycle-info">
-                    <div id="lights-stage">Estado de las luces: --</div>
-                    <p><strong>Tiempo Encendido:</strong> <span id="lights-on-time">--</span></p>
-                    <p><strong>Tiempo Apagado:</strong> <span id="lights-off-time">--</span></p>
-                    <p><strong>Cuenta Regresiva:</strong> <span id="lights-countdown">--</span></p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass p-6 border-l-4 border-emerald-500 vpd-gradient shadow-2xl shadow-emerald-500/10 text-slate-950">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-bold text-xs uppercase opacity-70">Déficit Presión Vapor</span>
+                    <i data-lucide="wind" class="w-5 h-5 opacity-70"></i>
                 </div>
+                <div class="text-5xl font-black mb-1" id="val-vpd">--</div>
+                <div class="text-sm font-bold opacity-70">kPa (Valor Actual)</div>
             </div>
-        </section>
 
-        <!-- Control de Humidificador -->
-        <section id="humidifier-control" class="quadrant">
-            <h2>Humidificador</h2>
-            <p>Estado: <span id="humidifier-status">Apagado</span></p>
-            <button id="humidifier-manual-on">Modo Manual Prendido</button>
-            <button id="humidifier-manual-off">Modo Manual Apagado</button>
-
-            <div class="program-section">
-                <h3>Programación de Humidificador</h3>
-                <label for="dpv-min">DPV Mínimo (kPa):</label>
-                <input type="number" id="dpv-min" step="0.1" min="0" value="1.5">
-                <label for="dpv-max">DPV Máximo (kPa):</label>
-                <input type="number" id="dpv-max" step="0.1" min="0" value="4.6">
-                <button id="humidifier-save-program">Guardar Programa</button>
-            </div>
-        </section>
-
-        <!-- Control de Extractor -->
-        <section id="extractor-control" class="quadrant">
-            <h2>Extractor</h2>
-            <p>Estado: <span id="extractor-status">Apagado</span></p>
-            <button id="extractor-manual-on">Modo Manual Prendido</button>
-            <button id="extractor-manual-off">Modo Manual Apagado</button>
-
-            <div class="program-section">
-                <h3>Programación de Extractor</h3>
-                <label for="extractor-interval">Intervalo de encendido (minutos):</label>
-                <input type="number" id="extractor-interval" min="1" value="1">
-                <label for="extractor-duration">Duración de encendido (minutos):</label>
-                <input type="number" id="extractor-duration" min="1" value="1">
-                <button id="extractor-save-program">Guardar Programa</button>
-                <button id="extractor-program-mode">Activar Modo Programado</button>
-                <div class="cycle-info">
-                    <div id="extractor-stage">Estado del extractor: --</div>
-                    <p><strong>Tiempo Encendido:</strong> <span id="extractor-on-time">--</span></p>
-                    <p><strong>Tiempo Apagado:</strong> <span id="extractor-off-time">--</span></p>
-                    <p><strong>Cuenta Regresiva:</strong> <span id="extractor-countdown">--</span></p>
+            <div class="glass p-6">
+                <div class="flex justify-between items-center mb-4 text-slate-400">
+                    <span class="font-bold text-xs uppercase">Temperatura</span>
+                    <i data-lucide="thermometer" class="w-4 h-4 text-orange-400"></i>
                 </div>
+                <div class="text-3xl font-bold" id="val-temp">-- °C</div>
+                <div class="text-xs text-slate-500 mt-2 italic" id="time-data">Esperando sincronización...</div>
             </div>
-        </section>
 
-        <!-- Control de Riego -->
-        <section id="watering-control" class="quadrant">
-            <h2>Riego</h2>
-            <p>Estado: <span id="watering-status">Apagado</span></p>
-            <button id="watering-manual-on">Modo Manual Prendido</button>
-            <button id="watering-manual-off">Modo Manual Apagado</button>
-
-            <div class="program-section">
-                <h3>Programación de Riego</h3>
-                <label for="soil-moisture-min">Humedad Mínima del Suelo (%):</label>
-                <input type="number" id="soil-moisture-min" min="0" max="100" value="50">
-                <label for="soil-moisture-max">Humedad Máxima del Suelo (%):</label>
-                <input type="number" id="soil-moisture-max" min="0" max="100" value="80">
-                <label for="watering-duration">Duración de Riego (minutos):</label>
-                <input type="number" id="watering-duration" min="1" value="2">
-                <button id="watering-save-program">Guardar Programa</button>
+            <div class="glass p-6">
+                <div class="flex justify-between items-center mb-4 text-slate-400">
+                    <span class="font-bold text-xs uppercase">Humedad Relativa</span>
+                    <i data-lucide="droplets" class="w-4 h-4 text-blue-400"></i>
+                </div>
+                <div class="text-3xl font-bold" id="val-hum">-- %</div>
+                <div class="text-xs text-slate-500 mt-2 italic">Sensor Activo</div>
             </div>
-        </section>
-    </main>
+        </div>
 
-    <footer>
-        <p>&copy; 2025 Automatización de Sala de Cultivo. Todos los derechos reservados.</p>
-    </footer>
+        <div class="glass p-8">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-2 h-8 bg-emerald-500 rounded-full"></div>
+                <h3 class="text-xl font-bold">Histórico de VPD & Temperatura</h3>
+            </div>
+            <div class="h-[450px]">
+                <canvas id="chartVpd"></canvas>
+            </div>
+        </div>
+    </div>
 
-    <!-- Notificaciones -->
-    <div id="notification" class="notification"></div>
+<script>
+    lucide.createIcons();
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    const CHANNEL_ID = 2685796;
+    const API_KEY = "P3H82TMM9GH1NS26";
+    let chartInstance = null;
 
-    <!-- Código JavaScript -->
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Configuración de Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyDn4smuABKPgN8DBYI2LAzoKhe3EbEYTQk",
-            authDomain: "sala-cultivo.firebaseapp.com",
-            databaseURL: "https://sala-cultivo-default-rtdb.firebaseio.com",
-            projectId: "sala-cultivo",
-            storageBucket: "sala-cultivo.firebasestorage.app",
-            messagingSenderId: "388469961230",
-            appId: "1:388469961230:web:d16beb9ef00ddf0866c25f",
-            measurementId: "G-72JQD67R0X"
-        };
+    // Fórmula para calcular VPD (Déficit de Presión de Vapor)
+    function calcularVPD(temp, hum) {
+        // Presión de vapor de saturación (SVP) en kPa
+        const svp = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
+        // Presión de vapor actual (AVP)
+        const avp = svp * (hum / 100);
+        // VPD es la diferencia
+        return (svp - avp).toFixed(2);
+    }
 
-        // Inicializar Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        // Referencias a la base de datos
-        const configRef = db.ref('configuracion');
-        const estadoActualRef = db.ref('estado_actual');
-        const sensoresRef = db.ref('estado_actual/sensores');
-        const controlesRef = db.ref('estado_actual/controles');
-
-        // Variables globales
-        let modoProgramadoActivo = false;
-        let modoProgramadoExtractorActivo = false;
-
-        // Variables para la cuenta regresiva
-        let lightsCountdownInterval;
-        let extractorCountdownInterval;
-
-        // Función para formatear el tiempo en minutos y segundos
-        function formatTime(seconds) {
-            const minutes = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    async function cargarDatos() {
+        const fecha = document.getElementById('fechaFiltro').value;
+        let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=100`;
+        
+        if (fecha) {
+            url += `&start=${fecha}%2000:00:00&end=${fecha}%2023:59:59`;
         }
 
-        // Función para iniciar la cuenta regresiva de las luces
-        function startLightsCountdown(horaFinalizacion, callback) {
-            const countdownElement = document.getElementById('lights-countdown');
-            if (!countdownElement) {
-                console.error('Elemento con ID "lights-countdown" no encontrado.');
-                return;
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            const feeds = data.feeds;
+
+            if (feeds.length > 0) {
+                const ultimo = feeds[feeds.length - 1];
+                const t = parseFloat(ultimo.field1);
+                const h = parseFloat(ultimo.field2);
+                const vpd = calcularVPD(t, h);
+
+                document.getElementById('val-temp').innerText = t.toFixed(1) + " °C";
+                document.getElementById('val-hum').innerText = h.toFixed(1) + " %";
+                document.getElementById('val-vpd').innerText = vpd;
+                document.getElementById('time-data').innerText = `Último registro: ${new Date(ultimo.created_at).toLocaleTimeString()}`;
+
+                actualizarGrafico(feeds);
             }
+        } catch (e) { console.error("Error:", e); }
+    }
 
-            const updateCountdown = () => {
-                const ahora = Date.now();
-                const tiempoRestante = Math.max(0, Math.floor((horaFinalizacion - ahora) / 1000)); // Convertir a segundos
-                countdownElement.textContent = formatTime(tiempoRestante);
+    function actualizarGrafico(feeds) {
+        const ctx = document.getElementById('chartVpd').getContext('2d');
+        
+        const labels = feeds.map(f => new Date(f.created_at));
+        const vpdData = feeds.map(f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)));
+        const tempData = feeds.map(f => parseFloat(f.field1));
 
-                if (tiempoRestante <= 0) {
-                    clearInterval(lightsCountdownInterval);
-                    if (callback) callback();
-                }
-            };
+        if (chartInstance) chartInstance.destroy();
 
-            updateCountdown(); // Actualizar inmediatamente
-            lightsCountdownInterval = setInterval(updateCountdown, 1000); // Actualizar cada segundo
-        }
-
-        // Función para iniciar la cuenta regresiva del extractor
-        function startExtractorCountdown(horaFinalizacion, callback) {
-            const countdownElement = document.getElementById('extractor-countdown');
-            if (!countdownElement) {
-                console.error('Elemento con ID "extractor-countdown" no encontrado.');
-                return;
-            }
-
-            const updateCountdown = () => {
-                const ahora = Date.now();
-                const tiempoRestante = Math.max(0, Math.floor((horaFinalizacion - ahora) / 1000)); // Convertir a segundos
-                countdownElement.textContent = formatTime(tiempoRestante);
-
-                if (tiempoRestante <= 0) {
-                    clearInterval(extractorCountdownInterval);
-                    if (callback) callback();
-                }
-            };
-
-            updateCountdown(); // Actualizar inmediatamente
-            extractorCountdownInterval = setInterval(updateCountdown, 1000); // Actualizar cada segundo
-        }
-
-        // Actualizar tiempos programados de las luces
-        function updateLightsCycleTimes(onHours, offHours) {
-            const onTimeElement = document.getElementById('lights-on-time');
-            const offTimeElement = document.getElementById('lights-off-time');
-
-            if (onTimeElement && offTimeElement) {
-                onTimeElement.textContent = `${onHours} horas`;
-                offTimeElement.textContent = `${offHours} horas`;
-            } else {
-                console.error('Elementos con IDs "lights-on-time" o "lights-off-time" no encontrados.');
-            }
-        }
-
-        // Actualizar tiempos programados del extractor
-        function updateExtractorCycleTimes(onMinutes, offMinutes) {
-            const onTimeElement = document.getElementById('extractor-on-time');
-            const offTimeElement = document.getElementById('extractor-off-time');
-
-            if (onTimeElement && offTimeElement) {
-                onTimeElement.textContent = `${onMinutes} minutos`;
-                offTimeElement.textContent = `${offMinutes} minutos`;
-            } else {
-                console.error('Elementos con IDs "extractor-on-time" o "extractor-off-time" no encontrados.');
-            }
-        }
-
-        // Actualizar la etapa actual del ciclo de luces
-        function updateLightsCycleStage(isOn) {
-            const stageElement = document.getElementById('lights-stage');
-            if (stageElement) {
-                stageElement.textContent = isOn ? 'Encendido' : 'Apagado';
-            } else {
-                console.error('Elemento con ID "lights-stage" no encontrado.');
-            }
-        }
-
-        // Actualizar la etapa actual del ciclo del extractor
-        function updateExtractorCycleStage(isOn) {
-            const stageElement = document.getElementById('extractor-stage');
-            if (stageElement) {
-                stageElement.textContent = isOn ? 'Encendido' : 'Apagado';
-            } else {
-                console.error('Elemento con ID "extractor-stage" no encontrado.');
-            }
-        }
-
-        // Guardar el estado del ciclo de luces en Firebase
-        function saveLightsCycleState(isOn, horaFinalizacion) {
-            configRef.child('luces/estado').set({
-                encendido: isOn,
-                hora_finalizacion: horaFinalizacion
-            });
-        }
-
-        // Guardar el estado del ciclo del extractor en Firebase
-        function saveExtractorCycleState(isOn, horaFinalizacion) {
-            configRef.child('extractor/estado').set({
-                encendido: isOn,
-                hora_finalizacion: horaFinalizacion
-            });
-        }
-
-        // Recuperar el estado del ciclo de luces al cargar la página
-        configRef.child('luces/estado').on('value', (snapshot) => {
-            const estadoLuces = snapshot.val();
-            if (estadoLuces && estadoLuces.hora_finalizacion) {
-                const horaFinalizacion = estadoLuces.hora_finalizacion;
-                const isOn = estadoLuces.encendido || false;
-
-                updateLightsCycleStage(isOn); // Actualizar la etapa actual
-
-                if (isOn) {
-                    // Si las luces están encendidas, iniciar cuenta regresiva de encendido
-                    startLightsCountdown(horaFinalizacion, () => {
-                        // Apagar luces y empezar cuenta regresiva de apagado
-                        controlesRef.child('luces').set(false)
-                            .then(() => {
-                                showNotification('Luces apagadas (modo programado)');
-                                updateLightsCycleStage(false); // Actualizar la etapa actual
-                                const horasApagado = cicloLuces.apagado * 3600; // Convertir a segundos
-                                const nuevaHoraFinalizacion = Date.now() + horasApagado * 1000; // Convertir a milisegundos
-                                saveLightsCycleState(false, nuevaHoraFinalizacion); // Guardar estado en Firebase
-                                startLightsCountdown(nuevaHoraFinalizacion, iniciarCicloLuces); // Reiniciar ciclo
-                            });
-                    });
-                } else {
-                    // Si las luces están apagadas, iniciar cuenta regresiva de apagado
-                    startLightsCountdown(horaFinalizacion, iniciarCicloLuces);
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'VPD (kPa)',
+                        data: vpdData,
+                        borderColor: '#10b981',
+                        borderWidth: 4,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: true,
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Temp (°C)',
+                        data: tempData,
+                        borderColor: '#f97316',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        pointRadius: 0,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'hour' },
+                        grid: { display: false },
+                        ticks: { color: '#64748b' }
+                    },
+                    y: {
+                        title: { display: true, text: 'VPD (kPa)', color: '#10b981' },
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#64748b' }
+                    },
+                    y1: {
+                        position: 'right',
+                        title: { display: true, text: 'Temp (°C)', color: '#f97316' },
+                        grid: { display: false },
+                        ticks: { color: '#64748b' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#f8fafc' } }
                 }
             }
         });
+    }
 
-        // Recuperar el estado del ciclo del extractor al cargar la página
-        configRef.child('extractor/estado').on('value', (snapshot) => {
-            const estadoExtractor = snapshot.val();
-            if (estadoExtractor && estadoExtractor.hora_finalizacion) {
-                const horaFinalizacion = estadoExtractor.hora_finalizacion;
-                const isOn = estadoExtractor.encendido || false;
-
-                updateExtractorCycleStage(isOn); // Actualizar la etapa actual
-
-                if (isOn) {
-                    // Si el extractor está encendido, iniciar cuenta regresiva de encendido
-                    startExtractorCountdown(horaFinalizacion, () => {
-                        // Apagar extractor y empezar cuenta regresiva de apagado
-                        controlesRef.child('extractor').set(false)
-                            .then(() => {
-                                showNotification('Extractor apagado (modo programado)');
-                                updateExtractorCycleStage(false); // Actualizar la etapa actual
-                                const minutosApagado = cicloExtractor.apagado_normal * 60; // Convertir a segundos
-                                const nuevaHoraFinalizacion = Date.now() + minutosApagado * 1000; // Convertir a milisegundos
-                                saveExtractorCycleState(false, nuevaHoraFinalizacion); // Guardar estado en Firebase
-                                startExtractorCountdown(nuevaHoraFinalizacion, iniciarCicloExtractor); // Reiniciar ciclo
-                            });
-                    });
-                } else {
-                    // Si el extractor está apagado, iniciar cuenta regresiva de apagado
-                    startExtractorCountdown(horaFinalizacion, iniciarCicloExtractor);
-                }
-            }
-        });
-
-        // Actualizar datos en tiempo real
-        sensoresRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const temperatureSpan = document.getElementById('temperature--span');
-                const humiditySpan = document.getElementById('humidity--span');
-                const dpvSpan = document.getElementById('dpv--span');
-                const soilMoistureSpan = document.getElementById('soil-moisture--span');
-
-                if (temperatureSpan) temperatureSpan.textContent = data.temperatura || '--';
-                if (humiditySpan) humiditySpan.textContent = data.humedad_ambiente || '--';
-                if (dpvSpan) dpvSpan.textContent = data.deficit_presion_vapor || '--';
-                if (soilMoistureSpan) soilMoistureSpan.textContent = data.humedad_suelo || '--';
-            }
-        });
-
-        controlesRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const lightsStatus = document.getElementById('lights-status');
-                const humidifierStatus = document.getElementById('humidifier-status');
-                const extractorStatus = document.getElementById('extractor-status');
-                const wateringStatus = document.getElementById('watering-status');
-
-                if (lightsStatus) lightsStatus.textContent = data.luces ? 'Prendidas' : 'Apagadas';
-                if (humidifierStatus) humidifierStatus.textContent = data.humidificador ? 'Prendido' : 'Apagado';
-                if (extractorStatus) extractorStatus.textContent = data.extractor ? 'Prendido' : 'Apagado';
-                if (wateringStatus) wateringStatus.textContent = data.bomba_riego ? 'Prendido' : 'Apagado';
-            }
-        });
-
-        // Verificar el estado del modo programado de las luces al cargar la página
-        configRef.child('luces/modo_programado').on('value', (snapshot) => {
-            modoProgramadoActivo = snapshot.val() || false;
-            const lightsProgramModeButton = document.getElementById('lights-program-mode');
-            if (lightsProgramModeButton) {
-                lightsProgramModeButton.textContent = modoProgramadoActivo ? 'Desactivar Modo Programado' : 'Activar Modo Programado';
-            }
-
-            // Si el modo programado está activo, iniciar el ciclo de luces
-            if (modoProgramadoActivo) {
-                iniciarCicloLuces();
-            } else {
-                detenerCicloLuces();
-            }
-        });
-
-        // Función para iniciar el ciclo de luces programado
-        function iniciarCicloLuces() {
-            configRef.child('luces/ciclo').once('value', (snapshot) => {
-                const cicloLuces = snapshot.val();
-                if (cicloLuces && cicloLuces.encendido && cicloLuces.apagado) {
-                    const horasEncendido = cicloLuces.encendido * 3600; // Convertir a segundos
-                    const horasApagado = cicloLuces.apagado * 3600; // Convertir a segundos
-
-                    // Calcular la hora de finalización
-                    const ahora = Date.now();
-                    const horaFinalizacion = ahora + horasEncendido * 1000; // Convertir a milisegundos
-
-                    // Guardar la hora de finalización en Firebase
-                    saveLightsCycleState(true, horaFinalizacion);
-
-                    // Encender luces y empezar cuenta regresiva
-                    controlesRef.child('luces').set(true)
-                        .then(() => {
-                            showNotification('Luces prendidas (modo programado)');
-                            updateLightsCycleStage(true); // Actualizar la etapa actual
-                            startLightsCountdown(horaFinalizacion, () => {
-                                // Apagar luces y empezar cuenta regresiva de apagado
-                                controlesRef.child('luces').set(false)
-                                    .then(() => {
-                                        showNotification('Luces apagadas (modo programado)');
-                                        updateLightsCycleStage(false); // Actualizar la etapa actual
-                                        const nuevaHoraFinalizacion = Date.now() + horasApagado * 1000; // Convertir a milisegundos
-                                        saveLightsCycleState(false, nuevaHoraFinalizacion); // Guardar estado en Firebase
-                                        startLightsCountdown(nuevaHoraFinalizacion, iniciarCicloLuces); // Reiniciar ciclo
-                                    });
-                            });
-                        });
-                }
-            });
-        }
-
-        // Función para detener el ciclo de luces programado
-        function detenerCicloLuces() {
-            if (lightsCountdownInterval) {
-                clearInterval(lightsCountdownInterval);
-                const countdownElement = document.getElementById('lights-countdown');
-                if (countdownElement) countdownElement.textContent = '--';
-            }
-        }
-
-        // Verificar el estado del modo programado del extractor al cargar la página
-        configRef.child('extractor/modo_programado').on('value', (snapshot) => {
-            modoProgramadoExtractorActivo = snapshot.val() || false;
-            const extractorProgramModeButton = document.getElementById('extractor-program-mode');
-            if (extractorProgramModeButton) {
-                extractorProgramModeButton.textContent = modoProgramadoExtractorActivo ? 'Desactivar Modo Programado' : 'Activar Modo Programado';
-            }
-
-            // Si el modo programado está activo, iniciar el ciclo del extractor
-            if (modoProgramadoExtractorActivo) {
-                iniciarCicloExtractor();
-            } else {
-                detenerCicloExtractor();
-            }
-        });
-
-        // Función para iniciar el ciclo programado del extractor
-        function iniciarCicloExtractor() {
-            configRef.child('extractor/ciclo').once('value', (snapshot) => {
-                const cicloExtractor = snapshot.val();
-                if (cicloExtractor && cicloExtractor.encendido_normal && cicloExtractor.apagado_normal) {
-                    const minutosEncendido = cicloExtractor.encendido_normal * 60; // Convertir a segundos
-                    const minutosApagado = cicloExtractor.apagado_normal * 60; // Convertir a segundos
-
-                    // Calcular la hora de finalización
-                    const ahora = Date.now();
-                    const horaFinalizacion = ahora + minutosEncendido * 1000; // Convertir a milisegundos
-
-                    // Guardar la hora de finalización en Firebase
-                    saveExtractorCycleState(true, horaFinalizacion);
-
-                    // Encender extractor y empezar cuenta regresiva
-                    controlesRef.child('extractor').set(true)
-                        .then(() => {
-                            showNotification('Extractor prendido (modo programado)');
-                            updateExtractorCycleStage(true); // Actualizar la etapa actual
-                            startExtractorCountdown(horaFinalizacion, () => {
-                                // Apagar extractor y empezar cuenta regresiva de apagado
-                                controlesRef.child('extractor').set(false)
-                                    .then(() => {
-                                        showNotification('Extractor apagado (modo programado)');
-                                        updateExtractorCycleStage(false); // Actualizar la etapa actual
-                                        const nuevaHoraFinalizacion = Date.now() + minutosApagado * 1000; // Convertir a milisegundos
-                                        saveExtractorCycleState(false, nuevaHoraFinalizacion); // Guardar estado en Firebase
-                                        startExtractorCountdown(nuevaHoraFinalizacion, iniciarCicloExtractor); // Reiniciar ciclo
-                                    });
-                            });
-                        });
-                }
-            });
-        }
-
-        // Función para detener el ciclo programado del extractor
-        function detenerCicloExtractor() {
-            if (extractorCountdownInterval) {
-                clearInterval(extractorCountdownInterval);
-                const countdownElement = document.getElementById('extractor-countdown');
-                if (countdownElement) countdownElement.textContent = '--';
-            }
-        }
-
-        // Control de Luces
-        const lightsManualOnButton = document.getElementById('lights-manual-on');
-        if (lightsManualOnButton) {
-            lightsManualOnButton.addEventListener('click', () => {
-                controlesRef.child('luces').set(true)
-                    .then(() => showNotification('Luces prendidas'))
-                    .catch((error) => console.error('Error al prender luces:', error));
-            });
-        }
-
-        const lightsManualOffButton = document.getElementById('lights-manual-off');
-        if (lightsManualOffButton) {
-            lightsManualOffButton.addEventListener('click', () => {
-                controlesRef.child('luces').set(false)
-                    .then(() => showNotification('Luces apagadas'))
-                    .catch((error) => console.error('Error al apagar luces:', error));
-            });
-        }
-
-        // Guardar programa de luces
-        const lightsSaveProgramButton = document.getElementById('lights-save-program');
-        if (lightsSaveProgramButton) {
-            lightsSaveProgramButton.addEventListener('click', () => {
-                const onHours = parseInt(document.getElementById('light-on-hours').value);
-                const offHours = parseInt(document.getElementById('light-off-hours').value);
-
-                if (isNaN(onHours) || isNaN(offHours)) {
-                    showNotification('Error: Los valores deben ser números válidos.');
-                    return;
-                }
-
-                const cicloLuces = {
-                    encendido: onHours,
-                    apagado: offHours
-                };
-
-                configRef.child('luces/ciclo').set(cicloLuces)
-                    .then(() => {
-                        showNotification('Programa de luces guardado');
-                        console.log('Ciclo de luces guardado:', cicloLuces);
-                        updateLightsCycleTimes(onHours, offHours); // Actualizar tiempos programados
-                    })
-                    .catch((error) => {
-                        console.error('Error al guardar programa de luces:', error);
-                        showNotification('Error al guardar programa de luces');
-                    });
-            });
-        }
-
-        // Activar/Desactivar Modo Programado de Luces
-        const lightsProgramModeButton = document.getElementById('lights-program-mode');
-        if (lightsProgramModeButton) {
-            lightsProgramModeButton.addEventListener('click', () => {
-                modoProgramadoActivo = !modoProgramadoActivo;
-
-                configRef.child('luces/modo_programado').set(modoProgramadoActivo)
-                    .then(() => {
-                        showNotification(modoProgramadoActivo ? 'Modo programado activado' : 'Modo programado desactivado');
-                        lightsProgramModeButton.textContent = modoProgramadoActivo ? 'Desactivar Modo Programado' : 'Activar Modo Programado';
-
-                        if (modoProgramadoActivo) {
-                            iniciarCicloLuces();
-                        } else {
-                            detenerCicloLuces();
-                        }
-                    })
-                    .catch((error) => console.error('Error al cambiar el modo programado:', error));
-            });
-        }
-
-        // Control de Humidificador
-        const humidifierManualOnButton = document.getElementById('humidifier-manual-on');
-        if (humidifierManualOnButton) {
-            humidifierManualOnButton.addEventListener('click', () => {
-                controlesRef.child('humidificador').set(true)
-                    .then(() => showNotification('Humidificador prendido'))
-                    .catch((error) => console.error('Error al prender humidificador:', error));
-            });
-        }
-
-        const humidifierManualOffButton = document.getElementById('humidifier-manual-off');
-        if (humidifierManualOffButton) {
-            humidifierManualOffButton.addEventListener('click', () => {
-                controlesRef.child('humidificador').set(false)
-                    .then(() => showNotification('Humidificador apagado'))
-                    .catch((error) => console.error('Error al apagar humidificador:', error));
-            });
-        }
-
-        // Guardar programa de humidificador
-        const humidifierSaveProgramButton = document.getElementById('humidifier-save-program');
-        if (humidifierSaveProgramButton) {
-            humidifierSaveProgramButton.addEventListener('click', () => {
-                const dpvMin = parseFloat(document.getElementById('dpv-min').value);
-                const dpvMax = parseFloat(document.getElementById('dpv-max').value);
-
-                if (isNaN(dpvMin) || isNaN(dpvMax)) {
-                    showNotification('Error: Los valores deben ser números válidos.');
-                    return;
-                }
-
-                configRef.child('humidificador').update({ dpv_min: dpvMin, dpv_max: dpvMax })
-                    .then(() => showNotification('Programa de humidificador guardado'))
-                    .catch((error) => console.error('Error al guardar programa de humidificador:', error));
-            });
-        }
-
-        // Control de Extractor
-        const extractorManualOnButton = document.getElementById('extractor-manual-on');
-        if (extractorManualOnButton) {
-            extractorManualOnButton.addEventListener('click', () => {
-                controlesRef.child('extractor').set(true)
-                    .then(() => showNotification('Extractor prendido'))
-                    .catch((error) => console.error('Error al prender extractor:', error));
-            });
-        }
-
-        const extractorManualOffButton = document.getElementById('extractor-manual-off');
-        if (extractorManualOffButton) {
-            extractorManualOffButton.addEventListener('click', () => {
-                controlesRef.child('extractor').set(false)
-                    .then(() => showNotification('Extractor apagado'))
-                    .catch((error) => console.error('Error al apagar extractor:', error));
-            });
-        }
-
-        // Guardar programa de extractor
-        const extractorSaveProgramButton = document.getElementById('extractor-save-program');
-        if (extractorSaveProgramButton) {
-            extractorSaveProgramButton.addEventListener('click', () => {
-                const interval = parseInt(document.getElementById('extractor-interval').value);
-                const duration = parseInt(document.getElementById('extractor-duration').value);
-
-                if (isNaN(interval) || isNaN(duration)) {
-                    showNotification('Error: Los valores deben ser números válidos.');
-                    return;
-                }
-
-                configRef.child('extractor/ciclo').update({ encendido_normal: duration, apagado_normal: interval })
-                    .then(() => {
-                        showNotification('Programa de extractor guardado');
-                        updateExtractorCycleTimes(duration, interval); // Actualizar tiempos programados
-                    })
-                    .catch((error) => console.error('Error al guardar programa de extractor:', error));
-            });
-        }
-
-        // Activar/Desactivar Modo Programado del Extractor
-        const extractorProgramModeButton = document.getElementById('extractor-program-mode');
-        if (extractorProgramModeButton) {
-            extractorProgramModeButton.addEventListener('click', () => {
-                modoProgramadoExtractorActivo = !modoProgramadoExtractorActivo;
-
-                configRef.child('extractor/modo_programado').set(modoProgramadoExtractorActivo)
-                    .then(() => {
-                        showNotification(modoProgramadoExtractorActivo ? 'Modo programado del extractor activado' : 'Modo programado del extractor desactivado');
-                        extractorProgramModeButton.textContent = modoProgramadoExtractorActivo ? 'Desactivar Modo Programado' : 'Activar Modo Programado';
-
-                        if (modoProgramadoExtractorActivo) {
-                            iniciarCicloExtractor();
-                        } else {
-                            detenerCicloExtractor();
-                        }
-                    })
-                    .catch((error) => console.error('Error al cambiar el modo programado del extractor:', error));
-            });
-        }
-
-        // Control de Riego
-        const wateringManualOnButton = document.getElementById('watering-manual-on');
-        if (wateringManualOnButton) {
-            wateringManualOnButton.addEventListener('click', () => {
-                controlesRef.child('bomba_riego').set(true)
-                    .then(() => showNotification('Riego prendido'))
-                    .catch((error) => console.error('Error al prender riego:', error));
-            });
-        }
-
-        const wateringManualOffButton = document.getElementById('watering-manual-off');
-        if (wateringManualOffButton) {
-            wateringManualOffButton.addEventListener('click', () => {
-                controlesRef.child('bomba_riego').set(false)
-                    .then(() => showNotification('Riego apagado'))
-                    .catch((error) => console.error('Error al apagar riego:', error));
-            });
-        }
-
-        // Guardar programa de riego
-        const wateringSaveProgramButton = document.getElementById('watering-save-program');
-        if (wateringSaveProgramButton) {
-            wateringSaveProgramButton.addEventListener('click', () => {
-                const soilMoistureMin = parseInt(document.getElementById('soil-moisture-min').value);
-                const soilMoistureMax = parseInt(document.getElementById('soil-moisture-max').value);
-                const wateringDuration = parseInt(document.getElementById('watering-duration').value);
-
-                if (isNaN(soilMoistureMin) || isNaN(soilMoistureMax) || isNaN(wateringDuration)) {
-                    showNotification('Error: Los valores deben ser números válidos.');
-                    return;
-                }
-
-                configRef.child('riego').update({ humedad_minima: soilMoistureMin, humedad_maxima: soilMoistureMax, tiempo_riego: wateringDuration })
-                    .then(() => showNotification('Programa de riego guardado'))
-                    .catch((error) => console.error('Error al guardar programa de riego:', error));
-            });
-        }
-
-        // Función para mostrar notificaciones
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            if (notification) {
-                notification.textContent = message;
-                notification.style.display = 'block';
-                setTimeout(() => notification.style.display = 'none', 3000);
-            } else {
-                console.error('Elemento con ID "notification" no encontrado.');
-            }
-        }
-    });
+    document.getElementById('fechaFiltro').value = new Date().toISOString().split('T')[0];
+    cargarDatos();
 </script>
 </body>
 </html>

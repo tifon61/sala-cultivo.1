@@ -27,21 +27,61 @@
             <div>
                 <h1 class="text-2xl font-extrabold tracking-tighter italic uppercase text-white">SALA <span class="text-emerald-500 font-black text-3xl">MONITOREO</span></h1>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] flex items-center gap-2">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · Histórico 24h
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Moviendo la tierra · <span id="labelHistorico">Histórico 24h</span>
                 </p>
+                <span id="estabilidadGlobal" class="inline-block mt-2 text-[10px] font-black px-3 py-1 rounded-full bg-slate-800 text-slate-400">Estabilidad Ambiental: --%</span>
             </div>
             
             <div class="glass px-4 py-2 flex flex-col md:flex-row gap-4 items-center">
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fase Cultivo</span>
-                    <select id="faseCultivo" onchange="cargarDatos()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
+                    <select id="faseCultivo" onchange="aplicarPresetFase()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
                         <option value="vegetativo">VEGETATIVO (0.8 - 1.2 kPa)</option>
                         <option value="floracion">FLORACIÓN (1.2 - 1.6 kPa)</option>
                     </select>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fecha de Análisis</span>
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Período</span>
+                    <select id="periodoVista" onchange="cargarDatos()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
+                        <option value="dia">Día</option>
+                        <option value="semana">Semana</option>
+                        <option value="mes">Mes</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fecha (referencia)</span>
                     <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Unidad DPV</span>
+                    <select id="unidadVpd" onchange="onCambiarUnidadVpd()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
+                        <option value="kpa">kPa</option>
+                        <option value="hpa">hPa</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Rango DPV</span>
+                    <div class="flex items-center gap-1">
+                        <input type="number" step="0.1" id="vpdMin" value="0.8" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
+                        <span class="text-slate-600 text-xs">-</span>
+                        <input type="number" step="0.1" id="vpdMax" value="1.2" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Rango Temp (°C)</span>
+                    <div class="flex items-center gap-1">
+                        <input type="number" step="0.1" id="tempMin" value="20" onchange="guardarRangos(); recalcularAnalisis()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-orange-400 font-bold outline-none">
+                        <span class="text-slate-600 text-xs">-</span>
+                        <input type="number" step="0.1" id="tempMax" value="28" onchange="guardarRangos(); recalcularAnalisis()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-orange-400 font-bold outline-none">
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Rango Hum (%)</span>
+                    <div class="flex items-center gap-1">
+                        <input type="number" step="1" id="humMin" value="40" onchange="guardarRangos(); recalcularAnalisis()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-blue-400 font-bold outline-none">
+                        <span class="text-slate-600 text-xs">-</span>
+                        <input type="number" step="1" id="humMax" value="60" onchange="guardarRangos(); recalcularAnalisis()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-blue-400 font-bold outline-none">
+                    </div>
                 </div>
             </div>
         </header>
@@ -54,14 +94,17 @@
                         <span class="text-[10px] font-black uppercase opacity-60 tracking-widest">Déficit Presión Vapor</span>
                         <i data-lucide="wind" class="w-4 h-4 opacity-40"></i>
                     </div>
-                    <div class="text-6xl font-black my-2" id="val-vpd">--</div>
-                    <div class="text-[10px] font-black uppercase mb-3" id="msg-vpd">kPa</div>
+                    <div class="text-6xl font-black my-2 flex items-baseline gap-2">
+                        <span id="val-vpd">--</span>
+                        <span id="unidad-vpd-label" class="text-lg font-bold opacity-50">kPa</span>
+                    </div>
+                    <div class="text-[10px] font-black uppercase mb-3" id="msg-vpd">--</div>
                     <div id="diag-vpd" class="text-[11px] font-bold leading-tight opacity-90 border-t border-black/10 pt-3 italic">
                         Analizando parámetros de transpiración...
                     </div>
                 </div>
                 <div class="glass p-5">
-                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">DPV c/ Límites de Fase</h3>
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-emerald-500">DPV c/ Rango Configurado</h3>
                     <canvas id="chartVpd"></canvas>
                 </div>
             </div>
@@ -91,6 +134,103 @@
             </div>
 
         </div>
+
+        <div class="mt-6">
+            <h2 class="text-[11px] font-black mb-4 uppercase tracking-[0.3em] text-slate-400">Análisis de Cumplimiento · Período Cargado</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <div class="glass p-5 border-t-4 border-emerald-500">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest text-emerald-400">DPV</h4>
+                        <span id="badge-vpd" class="text-[9px] font-black px-2 py-1 rounded-full bg-slate-800 text-slate-400">-- % EN RANGO</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                        <div id="bar-vpd" class="h-full bg-emerald-500" style="width:0%"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center mb-4">
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Mín</div><div id="min-vpd" class="text-sm font-bold">--</div></div>
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Prom</div><div id="avg-vpd" class="text-sm font-bold">--</div></div>
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Máx</div><div id="max-vpd" class="text-sm font-bold">--</div></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold border-t border-white/5 pt-3">
+                        <span class="text-slate-400">Tiempo fuera de rango</span>
+                        <span id="tiempo-fuera-vpd" class="text-red-400">--</span>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold mt-1">
+                        <span class="text-slate-400">Eventos / Días afectados</span>
+                        <span id="eventos-vpd" class="text-slate-200">--</span>
+                    </div>
+                </div>
+
+                <div class="glass p-5 border-t-4 border-orange-500">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest text-orange-400">Temperatura</h4>
+                        <span id="badge-temp" class="text-[9px] font-black px-2 py-1 rounded-full bg-slate-800 text-slate-400">-- % EN RANGO</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                        <div id="bar-temp" class="h-full bg-orange-500" style="width:0%"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center mb-4">
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Mín</div><div id="min-temp" class="text-sm font-bold">--</div></div>
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Prom</div><div id="avg-temp" class="text-sm font-bold">--</div></div>
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Máx</div><div id="max-temp" class="text-sm font-bold">--</div></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold border-t border-white/5 pt-3">
+                        <span class="text-slate-400">Tiempo fuera de rango</span>
+                        <span id="tiempo-fuera-temp" class="text-red-400">--</span>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold mt-1">
+                        <span class="text-slate-400">Eventos / Días afectados</span>
+                        <span id="eventos-temp" class="text-slate-200">--</span>
+                    </div>
+                </div>
+
+                <div class="glass p-5 border-t-4 border-blue-500">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest text-blue-400">Humedad</h4>
+                        <span id="badge-hum" class="text-[9px] font-black px-2 py-1 rounded-full bg-slate-800 text-slate-400">-- % EN RANGO</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                        <div id="bar-hum" class="h-full bg-blue-500" style="width:0%"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center mb-4">
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Mín</div><div id="min-hum" class="text-sm font-bold">--</div></div>
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Prom</div><div id="avg-hum" class="text-sm font-bold">--</div></div>
+                        <div><div class="text-[8px] text-slate-500 uppercase font-bold">Máx</div><div id="max-hum" class="text-sm font-bold">--</div></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold border-t border-white/5 pt-3">
+                        <span class="text-slate-400">Tiempo fuera de rango</span>
+                        <span id="tiempo-fuera-hum" class="text-red-400">--</span>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-bold mt-1">
+                        <span class="text-slate-400">Eventos / Días afectados</span>
+                        <span id="eventos-hum" class="text-slate-200">--</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="glass p-5 mt-6">
+                <h3 class="text-[11px] font-black mb-4 uppercase tracking-[0.2em] text-slate-300">Registro de Excursiones Fuera de Rango</h3>
+                <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                    <table class="w-full text-[11px]">
+                        <thead class="text-slate-500 uppercase text-[9px] sticky top-0 bg-[#020617]">
+                            <tr>
+                                <th class="text-left py-1">Variable</th>
+                                <th class="text-left py-1">Inicio</th>
+                                <th class="text-left py-1">Fin</th>
+                                <th class="text-left py-1">Duración</th>
+                                <th class="text-left py-1">Tipo</th>
+                                <th class="text-right py-1">Valor Pico</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-eventos">
+                            <tr><td colspan="6" class="text-center py-4 text-slate-500 italic">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
 <script>
@@ -98,6 +238,8 @@
     const API_KEY = "P3H82TMM9GH1NS26";
     let charts = {};
     let ultimoVPD = 0;
+    let lastFeeds = null;
+    let vpdLimites = { min: 0.8, max: 1.2 }; // siempre en kPa (unidad base del cálculo)
 
     function calcularVPD(temp, hum) {
         const svp = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
@@ -105,16 +247,68 @@
         return parseFloat((svp - avp).toFixed(2));
     }
 
-    function actualizarColores(vpd) {
+    function unidadVpd() {
+        return document.getElementById('unidadVpd').value;
+    }
+
+    function kpaAUnidad(v, unidad) {
+        return unidad === 'hpa' ? v * 10 : v;
+    }
+
+    function unidadAKpa(v, unidad) {
+        return unidad === 'hpa' ? v / 10 : v;
+    }
+
+    function refrescarInputsVpd() {
+        const u = unidadVpd();
+        document.getElementById('vpdMin').value = kpaAUnidad(vpdLimites.min, u).toFixed(1);
+        document.getElementById('vpdMax').value = kpaAUnidad(vpdLimites.max, u).toFixed(1);
+    }
+
+    function aplicarPresetFase() {
         const fase = document.getElementById('faseCultivo').value;
+        vpdLimites = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
+        refrescarInputsVpd();
+        guardarRangos();
+        recalcularAnalisis();
+        if (lastFeeds) dibujarGraficos(lastFeeds);
+    }
+
+    function onCambiarLimiteVpd() {
+        const u = unidadVpd();
+        vpdLimites = {
+            min: unidadAKpa(parseFloat(document.getElementById('vpdMin').value), u),
+            max: unidadAKpa(parseFloat(document.getElementById('vpdMax').value), u)
+        };
+        guardarRangos();
+        recalcularAnalisis();
+        if (lastFeeds) dibujarGraficos(lastFeeds);
+    }
+
+    function onCambiarUnidadVpd() {
+        refrescarInputsVpd();
+        guardarRangos();
+        recalcularAnalisis();
+        if (lastFeeds) dibujarGraficos(lastFeeds);
+        actualizarValorVpdMostrado();
+    }
+
+    function actualizarValorVpdMostrado() {
+        const u = unidadVpd();
+        document.getElementById('val-vpd').innerText = kpaAUnidad(ultimoVPD, u).toFixed(1);
+        document.getElementById('unidad-vpd-label').innerText = u === 'hpa' ? 'hPa' : 'kPa';
+        actualizarColores(ultimoVPD);
+    }
+
+    function actualizarColores(vpd) {
         const card = document.getElementById('cardVpd');
         const msg = document.getElementById('msg-vpd');
         const diag = document.getElementById('diag-vpd');
-        const config = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
+        const config = vpdLimites;
 
         card.classList.remove('rango-optimo', 'rango-alerta', 'rango-peligro', 'rango-frio');
-        
-        if (vpd < 0.4) { 
+
+        if (vpd < 0.4) {
             card.classList.add('rango-frio'); msg.innerText = "ALTA HUMEDAD";
             diag.innerText = "Transpiración bloqueada. Riesgo de hongos y mala absorción de calcio.";
         } else if (vpd < config.min) { 
@@ -129,12 +323,31 @@
         }
     }
 
+    function restarDias(fechaStr, dias) {
+        const [y, m, d] = fechaStr.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        dt.setUTCDate(dt.getUTCDate() - dias);
+        return dt.toISOString().split('T')[0];
+    }
+
+    function actualizarEtiquetaPeriodo() {
+        const periodo = document.getElementById('periodoVista').value;
+        const texto = periodo === 'dia' ? 'Histórico 24h' : periodo === 'semana' ? 'Histórico 7 días' : 'Histórico 30 días';
+        document.getElementById('labelHistorico').innerText = texto;
+    }
+
     async function cargarDatos() {
         const fecha = document.getElementById('fechaFiltro').value;
-        let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=800`;
-        
+        const periodo = document.getElementById('periodoVista').value;
+        actualizarEtiquetaPeriodo();
+
+        let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=${periodo === 'dia' ? 800 : 8000}`;
+
         if (fecha) {
-            url += `&start=${fecha}%2000:00:00&end=${fecha}%2023:59:59`;
+            let fechaInicio = fecha;
+            if (periodo === 'semana') fechaInicio = restarDias(fecha, 6);
+            else if (periodo === 'mes') fechaInicio = restarDias(fecha, 29);
+            url += `&start=${fechaInicio}%2000:00:00&end=${fecha}%2023:59:59`;
         }
 
         try {
@@ -150,18 +363,199 @@
 
                 document.getElementById('val-temp').innerText = t.toFixed(1) + "°C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + "%";
-                document.getElementById('val-vpd').innerText = ultimoVPD;
                 document.getElementById('time-data').innerText = `Día: ${fecha} | Registro: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
 
-                actualizarColores(ultimoVPD);
+                actualizarValorVpdMostrado();
                 dibujarGraficos(feeds);
+                actualizarAnalisis(feeds);
             }
         } catch (e) { console.error(e); }
     }
 
+    function analizarVariable(feeds, getValue, limMin, limMax) {
+        if (!feeds || feeds.length < 2) return null;
+        let outMs = 0, totalMs = 0, suma = 0, count = 0;
+        let vMin = Infinity, vMax = -Infinity;
+        const eventos = [];
+        const diasExcursion = new Set();
+        let eventoActual = null;
+
+        for (let i = 0; i < feeds.length; i++) {
+            const val = getValue(feeds[i]);
+            if (isNaN(val)) continue;
+            suma += val; count++;
+            vMin = Math.min(vMin, val);
+            vMax = Math.max(vMax, val);
+
+            const t = new Date(feeds[i].created_at);
+            const fuera = val < limMin || val > limMax;
+
+            if (i < feeds.length - 1) {
+                const delta = new Date(feeds[i + 1].created_at) - t;
+                totalMs += delta;
+                if (fuera) outMs += delta;
+            }
+
+            if (fuera) {
+                diasExcursion.add(t.toISOString().split('T')[0]);
+                const centro = (limMin + limMax) / 2;
+                if (!eventoActual) {
+                    eventoActual = { inicio: t, fin: t, pico: val, tipo: val < limMin ? 'BAJO' : 'ALTO' };
+                } else {
+                    eventoActual.fin = t;
+                    if (Math.abs(val - centro) > Math.abs(eventoActual.pico - centro)) eventoActual.pico = val;
+                }
+            } else if (eventoActual) {
+                eventos.push(eventoActual);
+                eventoActual = null;
+            }
+        }
+        if (eventoActual) eventos.push(eventoActual);
+
+        return {
+            avg: count ? suma / count : 0,
+            min: vMin, max: vMax,
+            outMs, totalMs,
+            pctFuera: totalMs ? (outMs / totalMs * 100) : 0,
+            eventos, diasExcursion
+        };
+    }
+
+    function formatDuracion(ms) {
+        const totalMin = Math.max(1, Math.round(ms / 60000));
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    function claseBadge(pctEnRango) {
+        if (pctEnRango >= 90) return 'bg-emerald-500/20 text-emerald-400';
+        if (pctEnRango >= 70) return 'bg-amber-500/20 text-amber-400';
+        return 'bg-red-500/20 text-red-400';
+    }
+
+    function pintarStat(prefix, stats, unidad) {
+        const pctEnRango = 100 - stats.pctFuera;
+        const badge = document.getElementById('badge-' + prefix);
+        badge.innerText = pctEnRango.toFixed(0) + '% EN RANGO';
+        badge.className = 'text-[9px] font-black px-2 py-1 rounded-full ' + claseBadge(pctEnRango);
+        document.getElementById('bar-' + prefix).style.width = Math.max(0, pctEnRango).toFixed(0) + '%';
+        document.getElementById('min-' + prefix).innerText = stats.min.toFixed(1) + unidad;
+        document.getElementById('avg-' + prefix).innerText = stats.avg.toFixed(1) + unidad;
+        document.getElementById('max-' + prefix).innerText = stats.max.toFixed(1) + unidad;
+        document.getElementById('tiempo-fuera-' + prefix).innerText = stats.outMs > 0
+            ? `${formatDuracion(stats.outMs)} (${stats.pctFuera.toFixed(0)}%)`
+            : 'Sin excursiones';
+        document.getElementById('eventos-' + prefix).innerText = `${stats.eventos.length} / ${stats.diasExcursion.size} día(s)`;
+    }
+
+    function pintarTablaEventos(grupos) {
+        const filas = [];
+        Object.keys(grupos).forEach(nombre => {
+            grupos[nombre].eventos.forEach(ev => {
+                filas.push({ nombre, unidad: grupos[nombre].unidad, ...ev, duracion: ev.fin - ev.inicio });
+            });
+        });
+        filas.sort((a, b) => b.duracion - a.duracion);
+
+        const tbody = document.getElementById('tabla-eventos');
+        if (filas.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-500 italic">Sin excursiones fuera de rango en el período seleccionado.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filas.slice(0, 30).map(f => `
+            <tr class="border-t border-white/5">
+                <td class="py-1.5 font-bold text-slate-300">${f.nombre}</td>
+                <td class="py-1.5 text-slate-400">${f.inicio.toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                <td class="py-1.5 text-slate-400">${f.fin.toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                <td class="py-1.5 font-bold text-slate-200">${formatDuracion(f.duracion)}</td>
+                <td class="py-1.5"><span class="px-1.5 py-0.5 rounded text-[9px] font-black ${f.tipo === 'ALTO' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}">${f.tipo}</span></td>
+                <td class="py-1.5 text-right font-bold text-slate-200">${f.pico.toFixed(2)}${f.unidad}</td>
+            </tr>
+        `).join('');
+    }
+
+    function convertirStatsVpd(stats, unidad) {
+        if (unidad !== 'hpa') return stats;
+        return {
+            ...stats,
+            min: kpaAUnidad(stats.min, 'hpa'),
+            max: kpaAUnidad(stats.max, 'hpa'),
+            avg: kpaAUnidad(stats.avg, 'hpa'),
+            eventos: stats.eventos.map(e => ({ ...e, pico: kpaAUnidad(e.pico, 'hpa') }))
+        };
+    }
+
+    function actualizarAnalisis(feeds) {
+        lastFeeds = feeds;
+        const u = unidadVpd();
+        const tempMin = parseFloat(document.getElementById('tempMin').value);
+        const tempMax = parseFloat(document.getElementById('tempMax').value);
+        const humMin = parseFloat(document.getElementById('humMin').value);
+        const humMax = parseFloat(document.getElementById('humMax').value);
+
+        const statsVpd = analizarVariable(feeds, f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)), vpdLimites.min, vpdLimites.max);
+        const statsTemp = analizarVariable(feeds, f => parseFloat(f.field1), tempMin, tempMax);
+        const statsHum = analizarVariable(feeds, f => parseFloat(f.field2), humMin, humMax);
+
+        if (!statsVpd || !statsTemp || !statsHum) return;
+
+        const statsVpdMostrado = convertirStatsVpd(statsVpd, u);
+        pintarStat('vpd', statsVpdMostrado, u === 'hpa' ? ' hPa' : ' kPa');
+        pintarStat('temp', statsTemp, '°C');
+        pintarStat('hum', statsHum, '%');
+
+        const estabilidad = ((100 - statsVpd.pctFuera) + (100 - statsTemp.pctFuera) + (100 - statsHum.pctFuera)) / 3;
+        const badgeGlobal = document.getElementById('estabilidadGlobal');
+        badgeGlobal.innerText = `Estabilidad Ambiental: ${estabilidad.toFixed(0)}%`;
+        badgeGlobal.className = 'inline-block mt-2 text-[10px] font-black px-3 py-1 rounded-full ' + claseBadge(estabilidad);
+
+        pintarTablaEventos({
+            VPD: { eventos: statsVpdMostrado.eventos, unidad: u === 'hpa' ? ' hPa' : ' kPa' },
+            TEMP: { eventos: statsTemp.eventos, unidad: '°C' },
+            HUM: { eventos: statsHum.eventos, unidad: '%' }
+        });
+    }
+
+    function recalcularAnalisis() {
+        if (lastFeeds) actualizarAnalisis(lastFeeds);
+    }
+
+    function guardarRangos() {
+        localStorage.setItem('rangosSala', JSON.stringify({
+            tempMin: document.getElementById('tempMin').value,
+            tempMax: document.getElementById('tempMax').value,
+            humMin: document.getElementById('humMin').value,
+            humMax: document.getElementById('humMax').value,
+            vpdMinKpa: vpdLimites.min,
+            vpdMaxKpa: vpdLimites.max,
+            unidadVpd: unidadVpd()
+        }));
+    }
+
+    function cargarRangosGuardados() {
+        const guardado = localStorage.getItem('rangosSala');
+        if (!guardado) return;
+        try {
+            const r = JSON.parse(guardado);
+            document.getElementById('tempMin').value = r.tempMin;
+            document.getElementById('tempMax').value = r.tempMax;
+            document.getElementById('humMin').value = r.humMin;
+            document.getElementById('humMax').value = r.humMax;
+            if (typeof r.vpdMinKpa === 'number' && typeof r.vpdMaxKpa === 'number') {
+                vpdLimites = { min: r.vpdMinKpa, max: r.vpdMaxKpa };
+            }
+            if (r.unidadVpd) document.getElementById('unidadVpd').value = r.unidadVpd;
+            refrescarInputsVpd();
+        } catch (e) { /* ignora config corrupta */ }
+    }
+
     function createChartConfig(labels, data, color, chartId) {
-        const fase = document.getElementById('faseCultivo').value;
-        const limits = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
+        const periodo = document.getElementById('periodoVista').value;
+        const esDia = periodo === 'dia';
+        const u = unidadVpd();
+        const limits = { min: kpaAUnidad(vpdLimites.min, u), max: kpaAUnidad(vpdLimites.max, u) };
 
         const config = {
             type: 'line',
@@ -183,18 +577,18 @@
                 maintainAspectRatio: false,
                 interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    x: { 
-                        type: 'time', 
-                        time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } },
+                    x: {
+                        type: 'time',
+                        time: esDia ? { unit: 'hour', displayFormats: { hour: 'HH:mm' } } : { unit: 'day', displayFormats: { day: 'dd/MM' } },
                         grid: { color: 'rgba(255,255,255,0.02)' },
-                        ticks: { color: '#64748b', font: { size: 9 } }
+                        ticks: { color: '#64748b', font: { size: 9 }, autoSkip: true, maxTicksLimit: esDia ? 12 : 10 }
                     },
-                    y: { 
-                        grid: { color: 'rgba(255,255,255,0.05)' }, 
-                        ticks: { color: '#64748b', font: { size: 9 } } 
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#64748b', font: { size: 9 } }
                     }
                 },
-                plugins: { 
+                plugins: {
                     legend: { display: false },
                     tooltip: {
                         enabled: true,
@@ -217,7 +611,7 @@
                         borderDash: [5, 5],
                         label: {
                             display: true,
-                            content: 'MIN ' + limits.min,
+                            content: 'MIN ' + limits.min.toFixed(1),
                             position: 'start',
                             backgroundColor: 'rgba(16, 185, 129, 0.7)',
                             font: { size: 9 }
@@ -232,7 +626,7 @@
                         borderDash: [5, 5],
                         label: {
                             display: true,
-                            content: 'MAX ' + limits.max,
+                            content: 'MAX ' + limits.max.toFixed(1),
                             position: 'end',
                             backgroundColor: 'rgba(239, 68, 68, 0.7)',
                             font: { size: 9 }
@@ -246,8 +640,9 @@
     }
 
     function dibujarGraficos(feeds) {
+        const u = unidadVpd();
         const labels = feeds.map(f => new Date(f.created_at));
-        const vpdData = feeds.map(f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)));
+        const vpdData = feeds.map(f => kpaAUnidad(calcularVPD(parseFloat(f.field1), parseFloat(f.field2)), u));
         const tempData = feeds.map(f => parseFloat(f.field1));
         const humData = feeds.map(f => parseFloat(f.field2));
 
@@ -269,7 +664,9 @@
     }, 300000);
 
     document.getElementById('fechaFiltro').value = new Date().toISOString().split('T')[0];
-    lucide.createIcons();
+    cargarRangosGuardados();
+    actualizarEtiquetaPeriodo();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     cargarDatos();
 </script>
 </body>

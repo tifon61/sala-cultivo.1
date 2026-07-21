@@ -32,14 +32,7 @@
                 <span id="estabilidadGlobal" class="inline-block mt-2 text-[10px] font-black px-3 py-1 rounded-full bg-slate-800 text-slate-400">Estabilidad Ambiental: --%</span>
             </div>
             
-            <div class="glass px-4 py-2 flex flex-col md:flex-row gap-4 items-center">
-                <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fase Cultivo</span>
-                    <select id="faseCultivo" onchange="aplicarPresetFase()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
-                        <option value="vegetativo">VEGETATIVO (0.8 - 1.2 kPa)</option>
-                        <option value="floracion">FLORACIÓN (1.2 - 1.6 kPa)</option>
-                    </select>
-                </div>
+            <div class="glass px-4 py-2 flex flex-col md:flex-row md:flex-wrap gap-4 items-center">
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Período</span>
                     <select id="periodoVista" onchange="cargarDatos()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
@@ -53,6 +46,10 @@
                     <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
                 </div>
                 <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Floración desde</span>
+                    <input type="date" id="fechaFloracion" onchange="onCambiarFechaFloracion()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
+                </div>
+                <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Unidad DPV</span>
                     <select id="unidadVpd" onchange="onCambiarUnidadVpd()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
                         <option value="kpa">kPa</option>
@@ -60,11 +57,19 @@
                     </select>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Rango DPV</span>
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">DPV Vegetativo</span>
                     <div class="flex items-center gap-1">
-                        <input type="number" step="0.1" id="vpdMin" value="0.8" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
+                        <input type="number" step="0.1" id="vpdVegMin" value="0.8" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
                         <span class="text-slate-600 text-xs">-</span>
-                        <input type="number" step="0.1" id="vpdMax" value="1.2" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
+                        <input type="number" step="0.1" id="vpdVegMax" value="1.2" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">DPV Floración</span>
+                    <div class="flex items-center gap-1">
+                        <input type="number" step="0.1" id="vpdFlorMin" value="1.2" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
+                        <span class="text-slate-600 text-xs">-</span>
+                        <input type="number" step="0.1" id="vpdFlorMax" value="1.6" onchange="onCambiarLimiteVpd()" class="w-14 bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none">
                     </div>
                 </div>
                 <div class="flex flex-col">
@@ -92,7 +97,10 @@
                 <div id="cardVpd" class="glass p-6 transition-all duration-500 shadow-xl border-l-4 border-emerald-500">
                     <div class="flex justify-between items-start">
                         <span class="text-[10px] font-black uppercase opacity-60 tracking-widest">Déficit Presión Vapor</span>
-                        <i data-lucide="wind" class="w-4 h-4 opacity-40"></i>
+                        <div class="flex items-center gap-2">
+                            <span id="fase-actual-label" class="text-[9px] font-black px-2 py-0.5 rounded-full bg-black/20 uppercase tracking-widest">--</span>
+                            <i data-lucide="wind" class="w-4 h-4 opacity-40"></i>
+                        </div>
                     </div>
                     <div class="text-6xl font-black my-2 flex items-baseline gap-2">
                         <span id="val-vpd">--</span>
@@ -238,8 +246,11 @@
     const API_KEY = "P3H82TMM9GH1NS26";
     let charts = {};
     let ultimoVPD = 0;
+    let ultimoTimestamp = new Date();
     let lastFeeds = null;
-    let vpdLimites = { min: 0.8, max: 1.2 }; // siempre en kPa (unidad base del cálculo)
+    // Rangos siempre en kPa (unidad base del cálculo), uno por etapa del cultivo
+    let vpdRangoVeg = { min: 0.8, max: 1.2 };
+    let vpdRangoFlor = { min: 1.2, max: 1.6 };
 
     function calcularVPD(temp, hum) {
         const svp = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
@@ -259,30 +270,47 @@
         return unidad === 'hpa' ? v / 10 : v;
     }
 
-    function refrescarInputsVpd() {
-        const u = unidadVpd();
-        document.getElementById('vpdMin').value = kpaAUnidad(vpdLimites.min, u).toFixed(1);
-        document.getElementById('vpdMax').value = kpaAUnidad(vpdLimites.max, u).toFixed(1);
+    // Determina la etapa vigente para una lectura según su propia fecha,
+    // comparada contra la fecha de inicio de floración configurada.
+    function faseEnFecha(t) {
+        const fechaFlor = document.getElementById('fechaFloracion').value;
+        if (!fechaFlor) return 'vegetativo';
+        return t.toISOString().split('T')[0] >= fechaFlor ? 'floracion' : 'vegetativo';
     }
 
-    function aplicarPresetFase() {
-        const fase = document.getElementById('faseCultivo').value;
-        vpdLimites = fase === 'vegetativo' ? { min: 0.8, max: 1.2 } : { min: 1.2, max: 1.6 };
-        refrescarInputsVpd();
-        guardarRangos();
-        recalcularAnalisis();
-        if (lastFeeds) dibujarGraficos(lastFeeds);
+    function limitesEnFecha(t) {
+        return faseEnFecha(t) === 'floracion' ? vpdRangoFlor : vpdRangoVeg;
+    }
+
+    function refrescarInputsVpd() {
+        const u = unidadVpd();
+        document.getElementById('vpdVegMin').value = kpaAUnidad(vpdRangoVeg.min, u).toFixed(1);
+        document.getElementById('vpdVegMax').value = kpaAUnidad(vpdRangoVeg.max, u).toFixed(1);
+        document.getElementById('vpdFlorMin').value = kpaAUnidad(vpdRangoFlor.min, u).toFixed(1);
+        document.getElementById('vpdFlorMax').value = kpaAUnidad(vpdRangoFlor.max, u).toFixed(1);
     }
 
     function onCambiarLimiteVpd() {
         const u = unidadVpd();
-        vpdLimites = {
-            min: unidadAKpa(parseFloat(document.getElementById('vpdMin').value), u),
-            max: unidadAKpa(parseFloat(document.getElementById('vpdMax').value), u)
+        vpdRangoVeg = {
+            min: unidadAKpa(parseFloat(document.getElementById('vpdVegMin').value), u),
+            max: unidadAKpa(parseFloat(document.getElementById('vpdVegMax').value), u)
+        };
+        vpdRangoFlor = {
+            min: unidadAKpa(parseFloat(document.getElementById('vpdFlorMin').value), u),
+            max: unidadAKpa(parseFloat(document.getElementById('vpdFlorMax').value), u)
         };
         guardarRangos();
         recalcularAnalisis();
         if (lastFeeds) dibujarGraficos(lastFeeds);
+        actualizarValorVpdMostrado();
+    }
+
+    function onCambiarFechaFloracion() {
+        guardarRangos();
+        recalcularAnalisis();
+        if (lastFeeds) dibujarGraficos(lastFeeds);
+        actualizarValorVpdMostrado();
     }
 
     function onCambiarUnidadVpd() {
@@ -297,14 +325,15 @@
         const u = unidadVpd();
         document.getElementById('val-vpd').innerText = kpaAUnidad(ultimoVPD, u).toFixed(1);
         document.getElementById('unidad-vpd-label').innerText = u === 'hpa' ? 'hPa' : 'kPa';
-        actualizarColores(ultimoVPD);
+        document.getElementById('fase-actual-label').innerText = faseEnFecha(ultimoTimestamp) === 'floracion' ? 'FLOR' : 'VEG';
+        actualizarColores(ultimoVPD, ultimoTimestamp);
     }
 
-    function actualizarColores(vpd) {
+    function actualizarColores(vpd, t) {
         const card = document.getElementById('cardVpd');
         const msg = document.getElementById('msg-vpd');
         const diag = document.getElementById('diag-vpd');
-        const config = vpdLimites;
+        const config = limitesEnFecha(t);
 
         card.classList.remove('rango-optimo', 'rango-alerta', 'rango-peligro', 'rango-frio');
 
@@ -360,6 +389,7 @@
                 const t = parseFloat(u.field1);
                 const h = parseFloat(u.field2);
                 ultimoVPD = calcularVPD(t, h);
+                ultimoTimestamp = new Date(u.created_at);
 
                 document.getElementById('val-temp').innerText = t.toFixed(1) + "°C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + "%";
@@ -372,7 +402,7 @@
         } catch (e) { console.error(e); }
     }
 
-    function analizarVariable(feeds, getValue, limMin, limMax) {
+    function analizarVariable(feeds, getValue, getLimites) {
         if (!feeds || feeds.length < 2) return null;
         let outMs = 0, totalMs = 0, suma = 0, count = 0;
         let vMin = Infinity, vMax = -Infinity;
@@ -388,6 +418,7 @@
             vMax = Math.max(vMax, val);
 
             const t = new Date(feeds[i].created_at);
+            const { min: limMin, max: limMax } = getLimites(t);
             const fuera = val < limMin || val > limMax;
 
             if (i < feeds.length - 1) {
@@ -495,9 +526,9 @@
         const humMin = parseFloat(document.getElementById('humMin').value);
         const humMax = parseFloat(document.getElementById('humMax').value);
 
-        const statsVpd = analizarVariable(feeds, f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)), vpdLimites.min, vpdLimites.max);
-        const statsTemp = analizarVariable(feeds, f => parseFloat(f.field1), tempMin, tempMax);
-        const statsHum = analizarVariable(feeds, f => parseFloat(f.field2), humMin, humMax);
+        const statsVpd = analizarVariable(feeds, f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)), t => limitesEnFecha(t));
+        const statsTemp = analizarVariable(feeds, f => parseFloat(f.field1), () => ({ min: tempMin, max: tempMax }));
+        const statsHum = analizarVariable(feeds, f => parseFloat(f.field2), () => ({ min: humMin, max: humMax }));
 
         if (!statsVpd || !statsTemp || !statsHum) return;
 
@@ -528,9 +559,12 @@
             tempMax: document.getElementById('tempMax').value,
             humMin: document.getElementById('humMin').value,
             humMax: document.getElementById('humMax').value,
-            vpdMinKpa: vpdLimites.min,
-            vpdMaxKpa: vpdLimites.max,
-            unidadVpd: unidadVpd()
+            vegMinKpa: vpdRangoVeg.min,
+            vegMaxKpa: vpdRangoVeg.max,
+            florMinKpa: vpdRangoFlor.min,
+            florMaxKpa: vpdRangoFlor.max,
+            unidadVpd: unidadVpd(),
+            fechaFloracion: document.getElementById('fechaFloracion').value
         }));
     }
 
@@ -543,19 +577,63 @@
             document.getElementById('tempMax').value = r.tempMax;
             document.getElementById('humMin').value = r.humMin;
             document.getElementById('humMax').value = r.humMax;
-            if (typeof r.vpdMinKpa === 'number' && typeof r.vpdMaxKpa === 'number') {
-                vpdLimites = { min: r.vpdMinKpa, max: r.vpdMaxKpa };
+            if (typeof r.vegMinKpa === 'number' && typeof r.vegMaxKpa === 'number') {
+                vpdRangoVeg = { min: r.vegMinKpa, max: r.vegMaxKpa };
+            }
+            if (typeof r.florMinKpa === 'number' && typeof r.florMaxKpa === 'number') {
+                vpdRangoFlor = { min: r.florMinKpa, max: r.florMaxKpa };
             }
             if (r.unidadVpd) document.getElementById('unidadVpd').value = r.unidadVpd;
+            if (r.fechaFloracion) document.getElementById('fechaFloracion').value = r.fechaFloracion;
             refrescarInputsVpd();
         } catch (e) { /* ignora config corrupta */ }
+    }
+
+    // Divide el eje temporal visible en tramos vegetativo/floración según
+    // "Floración desde", y genera un par de líneas MIN/MAX por cada tramo.
+    function construirAnotacionesVpd(labels, unidad) {
+        const annotations = {};
+        if (!labels || labels.length === 0) return annotations;
+
+        const inicio = labels[0];
+        const fin = labels[labels.length - 1];
+        const fechaFlor = document.getElementById('fechaFloracion').value;
+        const segmentos = [];
+
+        if (!fechaFlor) {
+            segmentos.push({ desde: inicio, hasta: fin, rango: vpdRangoVeg, etiqueta: 'VEG' });
+        } else {
+            const corte = new Date(fechaFlor + 'T00:00:00Z');
+            if (corte > inicio) segmentos.push({ desde: inicio, hasta: corte < fin ? corte : fin, rango: vpdRangoVeg, etiqueta: 'VEG' });
+            if (corte < fin) segmentos.push({ desde: corte > inicio ? corte : inicio, hasta: fin, rango: vpdRangoFlor, etiqueta: 'FLOR' });
+            if (segmentos.length === 0) {
+                const rangoUnico = corte <= inicio ? vpdRangoFlor : vpdRangoVeg;
+                segmentos.push({ desde: inicio, hasta: fin, rango: rangoUnico, etiqueta: corte <= inicio ? 'FLOR' : 'VEG' });
+            }
+        }
+
+        segmentos.forEach((seg, idx) => {
+            const min = kpaAUnidad(seg.rango.min, unidad);
+            const max = kpaAUnidad(seg.rango.max, unidad);
+            annotations['min' + idx] = {
+                type: 'line', xMin: seg.desde, xMax: seg.hasta, yMin: min, yMax: min,
+                borderColor: 'rgba(16, 185, 129, 0.4)', borderWidth: 2, borderDash: [5, 5],
+                label: { display: true, content: `${seg.etiqueta} MIN ${min.toFixed(1)}`, position: 'start', backgroundColor: 'rgba(16, 185, 129, 0.7)', font: { size: 9 } }
+            };
+            annotations['max' + idx] = {
+                type: 'line', xMin: seg.desde, xMax: seg.hasta, yMin: max, yMax: max,
+                borderColor: 'rgba(239, 68, 68, 0.3)', borderWidth: 2, borderDash: [5, 5],
+                label: { display: true, content: `${seg.etiqueta} MAX ${max.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.7)', font: { size: 9 } }
+            };
+        });
+
+        return annotations;
     }
 
     function createChartConfig(labels, data, color, chartId) {
         const periodo = document.getElementById('periodoVista').value;
         const esDia = periodo === 'dia';
         const u = unidadVpd();
-        const limits = { min: kpaAUnidad(vpdLimites.min, u), max: kpaAUnidad(vpdLimites.max, u) };
 
         const config = {
             type: 'line',
@@ -600,40 +678,7 @@
         };
 
         if (chartId === 'chartVpd') {
-            config.options.plugins.annotation = {
-                annotations: {
-                    lineMin: {
-                        type: 'line',
-                        yMin: limits.min,
-                        yMax: limits.min,
-                        borderColor: 'rgba(16, 185, 129, 0.4)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        label: {
-                            display: true,
-                            content: 'MIN ' + limits.min.toFixed(1),
-                            position: 'start',
-                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
-                            font: { size: 9 }
-                        }
-                    },
-                    lineMax: {
-                        type: 'line',
-                        yMin: limits.max,
-                        yMax: limits.max,
-                        borderColor: 'rgba(239, 68, 68, 0.3)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        label: {
-                            display: true,
-                            content: 'MAX ' + limits.max.toFixed(1),
-                            position: 'end',
-                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
-                            font: { size: 9 }
-                        }
-                    }
-                }
-            };
+            config.options.plugins.annotation = { annotations: construirAnotacionesVpd(labels, u) };
         }
 
         return config;

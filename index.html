@@ -35,7 +35,7 @@
             <div class="glass px-4 py-2 flex flex-col md:flex-row md:flex-wrap gap-4 items-center">
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Período</span>
-                    <select id="periodoVista" onchange="cargarDatos()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
+                    <select id="periodoVista" onchange="cargarDatosGlobales()" class="bg-slate-900 text-[10px] font-black border-none rounded-lg p-2 outline-none uppercase tracking-widest text-emerald-400 cursor-pointer">
                         <option value="dia">Día</option>
                         <option value="semana">Semana</option>
                         <option value="mes">Mes</option>
@@ -43,7 +43,7 @@
                 </div>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Fecha (referencia)</span>
-                    <input type="date" id="fechaFiltro" onchange="cargarDatos()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
+                    <input type="date" id="fechaFiltro" onchange="cargarDatosGlobales()" class="bg-slate-900 border-none rounded-lg p-1.5 text-xs text-emerald-400 font-bold outline-none cursor-pointer">
                 </div>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-slate-500 mb-1 uppercase tracking-widest">Floración desde</span>
@@ -91,8 +91,8 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+        <!-- SENSOR 1: PRINCIPAL (VPD, TEMP, HUM) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div class="flex flex-col gap-4">
                 <div id="cardVpd" class="glass p-6 transition-all duration-500 shadow-xl border-l-4 border-emerald-500">
                     <div class="flex justify-between items-start">
@@ -140,11 +140,48 @@
                     <canvas id="chartHum"></canvas>
                 </div>
             </div>
+        </div>
 
+        <!-- SENSOR 2: SECUNDARIO (CO2, TEMP, HUM) -->
+        <h2 class="text-[11px] font-black mb-4 uppercase tracking-[0.3em] text-slate-400 border-t border-white/10 pt-6">Sensor Secundario · CO2 y Clima</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="flex flex-col gap-4">
+                <div class="glass p-6 border-l-4 border-purple-500 h-[160px] flex flex-col justify-center">
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-purple-400">Dióxido de Carbono (CO2)</span>
+                    <div class="text-4xl font-bold my-2 text-white" id="val-co2">-- ppm</div>
+                    <div class="text-[10px] font-bold text-slate-500 uppercase" id="time-data-2">Sync...</div>
+                </div>
+                <div class="glass p-5">
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-purple-500">Nivel de CO2 (ppm)</h3>
+                    <canvas id="chartCo2"></canvas>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <div class="glass p-6 border-l-4 border-yellow-500 h-[160px] flex flex-col justify-center">
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-yellow-500">Temperatura (Sensor 2)</span>
+                    <div class="text-4xl font-bold my-2 text-white" id="val-temp2">--°C</div>
+                </div>
+                <div class="glass p-5">
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-yellow-500">Temperatura S2 (°C)</h3>
+                    <canvas id="chartTemp2"></canvas>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <div class="glass p-6 border-l-4 border-cyan-500 h-[160px] flex flex-col justify-center">
+                    <span class="text-[10px] font-black uppercase opacity-60 tracking-widest text-cyan-400">Humedad (Sensor 2)</span>
+                    <div class="text-4xl font-bold my-2 text-white" id="val-hum2">--%</div>
+                </div>
+                <div class="glass p-5">
+                    <h3 class="text-[11px] font-black mb-6 uppercase tracking-[0.2em] text-cyan-500">Humedad S2 (%)</h3>
+                    <canvas id="chartHum2"></canvas>
+                </div>
+            </div>
         </div>
 
         <div class="mt-6">
-            <h2 class="text-[11px] font-black mb-4 uppercase tracking-[0.3em] text-slate-400">Análisis de Cumplimiento · Período Cargado</h2>
+            <h2 class="text-[11px] font-black mb-4 uppercase tracking-[0.3em] text-slate-400 border-t border-white/10 pt-6">Análisis de Cumplimiento · Período Cargado</h2>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 <div class="glass p-5 border-t-4 border-emerald-500">
@@ -219,7 +256,7 @@
             </div>
 
             <div class="glass p-5 mt-6">
-                <h3 class="text-[11px] font-black mb-4 uppercase tracking-[0.2em] text-slate-300">Registro de Excursiones Fuera de Rango</h3>
+                <h3 class="text-[11px] font-black mb-4 uppercase tracking-[0.2em] text-slate-300">Registro de Excursiones Fuera de Rango (Sensor 1)</h3>
                 <div class="overflow-x-auto max-h-64 overflow-y-auto">
                     <table class="w-full text-[11px]">
                         <thead class="text-slate-500 uppercase text-[9px] sticky top-0 bg-[#020617]">
@@ -242,13 +279,14 @@
     </div>
 
 <script>
+    // CONFIGURACIÓN GLOBAL DE CANAL (Ambos sensores comparten esto)
     const CHANNEL_ID = 2685796;
     const API_KEY = "P3H82TMM9GH1NS26";
+
     let charts = {};
     let ultimoVPD = 0;
     let ultimoTimestamp = new Date();
     let lastFeeds = null;
-    // Rangos siempre en kPa (unidad base del cálculo), uno por etapa del cultivo
     let vpdRangoVeg = { min: 0.8, max: 1.2 };
     let vpdRangoFlor = { min: 1.2, max: 1.6 };
 
@@ -258,29 +296,17 @@
         return parseFloat((svp - avp).toFixed(2));
     }
 
-    function unidadVpd() {
-        return document.getElementById('unidadVpd').value;
-    }
+    function unidadVpd() { return document.getElementById('unidadVpd').value; }
+    function kpaAUnidad(v, unidad) { return unidad === 'hpa' ? v * 10 : v; }
+    function unidadAKpa(v, unidad) { return unidad === 'hpa' ? v / 10 : v; }
 
-    function kpaAUnidad(v, unidad) {
-        return unidad === 'hpa' ? v * 10 : v;
-    }
-
-    function unidadAKpa(v, unidad) {
-        return unidad === 'hpa' ? v / 10 : v;
-    }
-
-    // Determina la etapa vigente para una lectura según su propia fecha,
-    // comparada contra la fecha de inicio de floración configurada.
     function faseEnFecha(t) {
         const fechaFlor = document.getElementById('fechaFloracion').value;
         if (!fechaFlor) return 'vegetativo';
         return t.toISOString().split('T')[0] >= fechaFlor ? 'floracion' : 'vegetativo';
     }
 
-    function limitesEnFecha(t) {
-        return faseEnFecha(t) === 'floracion' ? vpdRangoFlor : vpdRangoVeg;
-    }
+    function limitesEnFecha(t) { return faseEnFecha(t) === 'floracion' ? vpdRangoFlor : vpdRangoVeg; }
 
     function refrescarInputsVpd() {
         const u = unidadVpd();
@@ -292,34 +318,15 @@
 
     function onCambiarLimiteVpd() {
         const u = unidadVpd();
-        vpdRangoVeg = {
-            min: unidadAKpa(parseFloat(document.getElementById('vpdVegMin').value), u),
-            max: unidadAKpa(parseFloat(document.getElementById('vpdVegMax').value), u)
-        };
-        vpdRangoFlor = {
-            min: unidadAKpa(parseFloat(document.getElementById('vpdFlorMin').value), u),
-            max: unidadAKpa(parseFloat(document.getElementById('vpdFlorMax').value), u)
-        };
-        guardarRangos();
-        recalcularAnalisis();
+        vpdRangoVeg = { min: unidadAKpa(parseFloat(document.getElementById('vpdVegMin').value), u), max: unidadAKpa(parseFloat(document.getElementById('vpdVegMax').value), u) };
+        vpdRangoFlor = { min: unidadAKpa(parseFloat(document.getElementById('vpdFlorMin').value), u), max: unidadAKpa(parseFloat(document.getElementById('vpdFlorMax').value), u) };
+        guardarRangos(); recalcularAnalisis();
         if (lastFeeds) dibujarGraficos(lastFeeds);
         actualizarValorVpdMostrado();
     }
 
-    function onCambiarFechaFloracion() {
-        guardarRangos();
-        recalcularAnalisis();
-        if (lastFeeds) dibujarGraficos(lastFeeds);
-        actualizarValorVpdMostrado();
-    }
-
-    function onCambiarUnidadVpd() {
-        refrescarInputsVpd();
-        guardarRangos();
-        recalcularAnalisis();
-        if (lastFeeds) dibujarGraficos(lastFeeds);
-        actualizarValorVpdMostrado();
-    }
+    function onCambiarFechaFloracion() { guardarRangos(); recalcularAnalisis(); if (lastFeeds) dibujarGraficos(lastFeeds); actualizarValorVpdMostrado(); }
+    function onCambiarUnidadVpd() { refrescarInputsVpd(); guardarRangos(); recalcularAnalisis(); if (lastFeeds) dibujarGraficos(lastFeeds); actualizarValorVpdMostrado(); }
 
     function actualizarValorVpdMostrado() {
         const u = unidadVpd();
@@ -334,9 +341,7 @@
         const msg = document.getElementById('msg-vpd');
         const diag = document.getElementById('diag-vpd');
         const config = limitesEnFecha(t);
-
         card.classList.remove('rango-optimo', 'rango-alerta', 'rango-peligro', 'rango-frio');
-
         if (vpd < 0.4) {
             card.classList.add('rango-frio'); msg.innerText = "ALTA HUMEDAD";
             diag.innerText = "Transpiración bloqueada. Riesgo de hongos y mala absorción de calcio.";
@@ -365,41 +370,58 @@
         document.getElementById('labelHistorico').innerText = texto;
     }
 
-    async function cargarDatos() {
-        const fecha = document.getElementById('fechaFiltro').value;
-        const periodo = document.getElementById('periodoVista').value;
-        actualizarEtiquetaPeriodo();
-
-        let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${API_KEY}&results=${periodo === 'dia' ? 800 : 8000}`;
-
+    function generarUrlThingspeak(canal, api_key, fecha, periodo) {
+        let url = `https://api.thingspeak.com/channels/${canal}/feeds.json?api_key=${api_key}&results=${periodo === 'dia' ? 800 : 8000}`;
         if (fecha) {
             let fechaInicio = fecha;
             if (periodo === 'semana') fechaInicio = restarDias(fecha, 6);
             else if (periodo === 'mes') fechaInicio = restarDias(fecha, 29);
             url += `&start=${fechaInicio}%2000:00:00&end=${fecha}%2023:59:59`;
         }
+        return url;
+    }
 
+    async function cargarDatosGlobales() {
+        actualizarEtiquetaPeriodo();
+        
+        const fecha = document.getElementById('fechaFiltro').value;
+        const periodo = document.getElementById('periodoVista').value;
+        const url = generarUrlThingspeak(CHANNEL_ID, API_KEY, fecha, periodo);
+        
         try {
             const res = await fetch(url);
             const data = await res.json();
             const feeds = data.feeds;
-
+            
             if (feeds && feeds.length > 0) {
                 const u = feeds[feeds.length - 1];
-                const t = parseFloat(u.field1);
-                const h = parseFloat(u.field2);
+                
+                // --- SENSOR 1 (Field 1 y 2) ---
+                const t = parseFloat(u.field1) || 0;
+                const h = parseFloat(u.field2) || 0;
                 ultimoVPD = calcularVPD(t, h);
                 ultimoTimestamp = new Date(u.created_at);
-
+                
                 document.getElementById('val-temp').innerText = t.toFixed(1) + "°C";
                 document.getElementById('val-hum').innerText = h.toFixed(1) + "%";
                 document.getElementById('time-data').innerText = `Día: ${fecha} | Registro: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-
                 actualizarValorVpdMostrado();
+                
+                // --- SENSOR 2 (Field 5, 6 y 7) ---
+                const co2 = parseFloat(u.field5) || 0;
+                const t2 = parseFloat(u.field6) || 0;
+                const h2 = parseFloat(u.field7) || 0;
+                
+                document.getElementById('val-temp2').innerText = t2.toFixed(1) + "°C";
+                document.getElementById('val-hum2').innerText = h2.toFixed(1) + "%";
+                document.getElementById('val-co2').innerText = co2.toFixed(0) + " ppm";
+                document.getElementById('time-data-2').innerText = `Día: ${fecha} | Registro: ${new Date(u.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+
+                // Dibujar y analizar
                 dibujarGraficos(feeds);
                 actualizarAnalisis(feeds);
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Error obteniendo datos:", e); }
     }
 
     function analizarVariable(feeds, getValue, getLimites) {
@@ -409,47 +431,31 @@
         const eventos = [];
         const diasExcursion = new Set();
         let eventoActual = null;
-
         for (let i = 0; i < feeds.length; i++) {
             const val = getValue(feeds[i]);
             if (isNaN(val)) continue;
             suma += val; count++;
-            vMin = Math.min(vMin, val);
-            vMax = Math.max(vMax, val);
-
+            vMin = Math.min(vMin, val); vMax = Math.max(vMax, val);
             const t = new Date(feeds[i].created_at);
             const { min: limMin, max: limMax } = getLimites(t);
             const fuera = val < limMin || val > limMax;
-
             if (i < feeds.length - 1) {
                 const delta = new Date(feeds[i + 1].created_at) - t;
                 totalMs += delta;
                 if (fuera) outMs += delta;
             }
-
             if (fuera) {
                 diasExcursion.add(t.toISOString().split('T')[0]);
                 const centro = (limMin + limMax) / 2;
-                if (!eventoActual) {
-                    eventoActual = { inicio: t, fin: t, pico: val, tipo: val < limMin ? 'BAJO' : 'ALTO' };
-                } else {
+                if (!eventoActual) { eventoActual = { inicio: t, fin: t, pico: val, tipo: val < limMin ? 'BAJO' : 'ALTO' }; } 
+                else {
                     eventoActual.fin = t;
                     if (Math.abs(val - centro) > Math.abs(eventoActual.pico - centro)) eventoActual.pico = val;
                 }
-            } else if (eventoActual) {
-                eventos.push(eventoActual);
-                eventoActual = null;
-            }
+            } else if (eventoActual) { eventos.push(eventoActual); eventoActual = null; }
         }
         if (eventoActual) eventos.push(eventoActual);
-
-        return {
-            avg: count ? suma / count : 0,
-            min: vMin, max: vMax,
-            outMs, totalMs,
-            pctFuera: totalMs ? (outMs / totalMs * 100) : 0,
-            eventos, diasExcursion
-        };
+        return { avg: count ? suma / count : 0, min: vMin, max: vMax, outMs, totalMs, pctFuera: totalMs ? (outMs / totalMs * 100) : 0, eventos, diasExcursion };
     }
 
     function formatDuracion(ms) {
@@ -474,27 +480,19 @@
         document.getElementById('min-' + prefix).innerText = stats.min.toFixed(1) + unidad;
         document.getElementById('avg-' + prefix).innerText = stats.avg.toFixed(1) + unidad;
         document.getElementById('max-' + prefix).innerText = stats.max.toFixed(1) + unidad;
-        document.getElementById('tiempo-fuera-' + prefix).innerText = stats.outMs > 0
-            ? `${formatDuracion(stats.outMs)} (${stats.pctFuera.toFixed(0)}%)`
-            : 'Sin excursiones';
+        document.getElementById('tiempo-fuera-' + prefix).innerText = stats.outMs > 0 ? `${formatDuracion(stats.outMs)} (${stats.pctFuera.toFixed(0)}%)` : 'Sin excursiones';
         document.getElementById('eventos-' + prefix).innerText = `${stats.eventos.length} / ${stats.diasExcursion.size} día(s)`;
     }
 
     function pintarTablaEventos(grupos) {
         const filas = [];
-        Object.keys(grupos).forEach(nombre => {
-            grupos[nombre].eventos.forEach(ev => {
-                filas.push({ nombre, unidad: grupos[nombre].unidad, ...ev, duracion: ev.fin - ev.inicio });
-            });
-        });
+        Object.keys(grupos).forEach(nombre => { grupos[nombre].eventos.forEach(ev => { filas.push({ nombre, unidad: grupos[nombre].unidad, ...ev, duracion: ev.fin - ev.inicio }); }); });
         filas.sort((a, b) => b.duracion - a.duracion);
-
         const tbody = document.getElementById('tabla-eventos');
         if (filas.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-500 italic">Sin excursiones fuera de rango en el período seleccionado.</td></tr>`;
             return;
         }
-
         tbody.innerHTML = filas.slice(0, 30).map(f => `
             <tr class="border-t border-white/5">
                 <td class="py-1.5 font-bold text-slate-300">${f.nombre}</td>
@@ -509,13 +507,7 @@
 
     function convertirStatsVpd(stats, unidad) {
         if (unidad !== 'hpa') return stats;
-        return {
-            ...stats,
-            min: kpaAUnidad(stats.min, 'hpa'),
-            max: kpaAUnidad(stats.max, 'hpa'),
-            avg: kpaAUnidad(stats.avg, 'hpa'),
-            eventos: stats.eventos.map(e => ({ ...e, pico: kpaAUnidad(e.pico, 'hpa') }))
-        };
+        return { ...stats, min: kpaAUnidad(stats.min, 'hpa'), max: kpaAUnidad(stats.max, 'hpa'), avg: kpaAUnidad(stats.avg, 'hpa'), eventos: stats.eventos.map(e => ({ ...e, pico: kpaAUnidad(e.pico, 'hpa') })) };
     }
 
     function actualizarAnalisis(feeds) {
@@ -525,46 +517,30 @@
         const tempMax = parseFloat(document.getElementById('tempMax').value);
         const humMin = parseFloat(document.getElementById('humMin').value);
         const humMax = parseFloat(document.getElementById('humMax').value);
-
         const statsVpd = analizarVariable(feeds, f => calcularVPD(parseFloat(f.field1), parseFloat(f.field2)), t => limitesEnFecha(t));
         const statsTemp = analizarVariable(feeds, f => parseFloat(f.field1), () => ({ min: tempMin, max: tempMax }));
         const statsHum = analizarVariable(feeds, f => parseFloat(f.field2), () => ({ min: humMin, max: humMax }));
-
         if (!statsVpd || !statsTemp || !statsHum) return;
-
         const statsVpdMostrado = convertirStatsVpd(statsVpd, u);
         pintarStat('vpd', statsVpdMostrado, u === 'hpa' ? ' hPa' : ' kPa');
         pintarStat('temp', statsTemp, '°C');
         pintarStat('hum', statsHum, '%');
-
         const estabilidad = ((100 - statsVpd.pctFuera) + (100 - statsTemp.pctFuera) + (100 - statsHum.pctFuera)) / 3;
         const badgeGlobal = document.getElementById('estabilidadGlobal');
         badgeGlobal.innerText = `Estabilidad Ambiental: ${estabilidad.toFixed(0)}%`;
         badgeGlobal.className = 'inline-block mt-2 text-[10px] font-black px-3 py-1 rounded-full ' + claseBadge(estabilidad);
-
-        pintarTablaEventos({
-            VPD: { eventos: statsVpdMostrado.eventos, unidad: u === 'hpa' ? ' hPa' : ' kPa' },
-            TEMP: { eventos: statsTemp.eventos, unidad: '°C' },
-            HUM: { eventos: statsHum.eventos, unidad: '%' }
-        });
+        pintarTablaEventos({ VPD: { eventos: statsVpdMostrado.eventos, unidad: u === 'hpa' ? ' hPa' : ' kPa' }, TEMP: { eventos: statsTemp.eventos, unidad: '°C' }, HUM: { eventos: statsHum.eventos, unidad: '%' } });
     }
 
-    function recalcularAnalisis() {
-        if (lastFeeds) actualizarAnalisis(lastFeeds);
-    }
+    function recalcularAnalisis() { if (lastFeeds) actualizarAnalisis(lastFeeds); }
 
     function guardarRangos() {
         localStorage.setItem('rangosSala', JSON.stringify({
-            tempMin: document.getElementById('tempMin').value,
-            tempMax: document.getElementById('tempMax').value,
-            humMin: document.getElementById('humMin').value,
-            humMax: document.getElementById('humMax').value,
-            vegMinKpa: vpdRangoVeg.min,
-            vegMaxKpa: vpdRangoVeg.max,
-            florMinKpa: vpdRangoFlor.min,
-            florMaxKpa: vpdRangoFlor.max,
-            unidadVpd: unidadVpd(),
-            fechaFloracion: document.getElementById('fechaFloracion').value
+            tempMin: document.getElementById('tempMin').value, tempMax: document.getElementById('tempMax').value,
+            humMin: document.getElementById('humMin').value, humMax: document.getElementById('humMax').value,
+            vegMinKpa: vpdRangoVeg.min, vegMaxKpa: vpdRangoVeg.max,
+            florMinKpa: vpdRangoFlor.min, florMaxKpa: vpdRangoFlor.max,
+            unidadVpd: unidadVpd(), fechaFloracion: document.getElementById('fechaFloracion').value
         }));
     }
 
@@ -573,36 +549,24 @@
         if (!guardado) return;
         try {
             const r = JSON.parse(guardado);
-            document.getElementById('tempMin').value = r.tempMin;
-            document.getElementById('tempMax').value = r.tempMax;
-            document.getElementById('humMin').value = r.humMin;
-            document.getElementById('humMax').value = r.humMax;
-            if (typeof r.vegMinKpa === 'number' && typeof r.vegMaxKpa === 'number') {
-                vpdRangoVeg = { min: r.vegMinKpa, max: r.vegMaxKpa };
-            }
-            if (typeof r.florMinKpa === 'number' && typeof r.florMaxKpa === 'number') {
-                vpdRangoFlor = { min: r.florMinKpa, max: r.florMaxKpa };
-            }
+            document.getElementById('tempMin').value = r.tempMin; document.getElementById('tempMax').value = r.tempMax;
+            document.getElementById('humMin').value = r.humMin; document.getElementById('humMax').value = r.humMax;
+            if (typeof r.vegMinKpa === 'number' && typeof r.vegMaxKpa === 'number') vpdRangoVeg = { min: r.vegMinKpa, max: r.vegMaxKpa };
+            if (typeof r.florMinKpa === 'number' && typeof r.florMaxKpa === 'number') vpdRangoFlor = { min: r.florMinKpa, max: r.florMaxKpa };
             if (r.unidadVpd) document.getElementById('unidadVpd').value = r.unidadVpd;
             if (r.fechaFloracion) document.getElementById('fechaFloracion').value = r.fechaFloracion;
             refrescarInputsVpd();
-        } catch (e) { /* ignora config corrupta */ }
+        } catch (e) { }
     }
 
-    // Divide el eje temporal visible en tramos vegetativo/floración según
-    // "Floración desde", y genera un par de líneas MIN/MAX por cada tramo.
     function construirAnotacionesVpd(labels, unidad) {
         const annotations = {};
         if (!labels || labels.length === 0) return annotations;
-
-        const inicio = labels[0];
-        const fin = labels[labels.length - 1];
+        const inicio = labels[0], fin = labels[labels.length - 1];
         const fechaFlor = document.getElementById('fechaFloracion').value;
         const segmentos = [];
-
-        if (!fechaFlor) {
-            segmentos.push({ desde: inicio, hasta: fin, rango: vpdRangoVeg, etiqueta: 'VEG' });
-        } else {
+        if (!fechaFlor) { segmentos.push({ desde: inicio, hasta: fin, rango: vpdRangoVeg, etiqueta: 'VEG' }); } 
+        else {
             const corte = new Date(fechaFlor + 'T00:00:00Z');
             if (corte > inicio) segmentos.push({ desde: inicio, hasta: corte < fin ? corte : fin, rango: vpdRangoVeg, etiqueta: 'VEG' });
             if (corte < fin) segmentos.push({ desde: corte > inicio ? corte : inicio, hasta: fin, rango: vpdRangoFlor, etiqueta: 'FLOR' });
@@ -611,108 +575,71 @@
                 segmentos.push({ desde: inicio, hasta: fin, rango: rangoUnico, etiqueta: corte <= inicio ? 'FLOR' : 'VEG' });
             }
         }
-
         segmentos.forEach((seg, idx) => {
-            const min = kpaAUnidad(seg.rango.min, unidad);
-            const max = kpaAUnidad(seg.rango.max, unidad);
-            annotations['min' + idx] = {
-                type: 'line', xMin: seg.desde, xMax: seg.hasta, yMin: min, yMax: min,
-                borderColor: 'rgba(16, 185, 129, 0.4)', borderWidth: 2, borderDash: [5, 5],
-                label: { display: true, content: `${seg.etiqueta} MIN ${min.toFixed(1)}`, position: 'start', backgroundColor: 'rgba(16, 185, 129, 0.7)', font: { size: 9 } }
-            };
-            annotations['max' + idx] = {
-                type: 'line', xMin: seg.desde, xMax: seg.hasta, yMin: max, yMax: max,
-                borderColor: 'rgba(239, 68, 68, 0.3)', borderWidth: 2, borderDash: [5, 5],
-                label: { display: true, content: `${seg.etiqueta} MAX ${max.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.7)', font: { size: 9 } }
-            };
+            const min = kpaAUnidad(seg.rango.min, unidad), max = kpaAUnidad(seg.rango.max, unidad);
+            annotations['min' + idx] = { type: 'line', xMin: seg.desde, xMax: seg.hasta, yMin: min, yMax: min, borderColor: 'rgba(16, 185, 129, 0.4)', borderWidth: 2, borderDash: [5, 5], label: { display: true, content: `${seg.etiqueta} MIN ${min.toFixed(1)}`, position: 'start', backgroundColor: 'rgba(16, 185, 129, 0.7)', font: { size: 9 } } };
+            annotations['max' + idx] = { type: 'line', xMin: seg.desde, xMax: seg.hasta, yMin: max, yMax: max, borderColor: 'rgba(239, 68, 68, 0.3)', borderWidth: 2, borderDash: [5, 5], label: { display: true, content: `${seg.etiqueta} MAX ${max.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.7)', font: { size: 9 } } };
         });
-
         return annotations;
     }
 
     function createChartConfig(labels, data, color, chartId) {
         const periodo = document.getElementById('periodoVista').value;
         const esDia = periodo === 'dia';
-        const u = unidadVpd();
-
         const config = {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    borderColor: color,
-                    borderWidth: 2,
-                    tension: 0.3,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    fill: true,
-                    backgroundColor: color.replace('1)', '0.05)')
-                }]
-            },
+            data: { labels: labels, datasets: [{ data: data, borderColor: color, borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 6, fill: true, backgroundColor: color.replace('1)', '0.05)') }] },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { intersect: false, mode: 'index' },
+                responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
                 scales: {
-                    x: {
-                        type: 'time',
-                        time: esDia ? { unit: 'hour', displayFormats: { hour: 'HH:mm' } } : { unit: 'day', displayFormats: { day: 'dd/MM' } },
-                        grid: { color: 'rgba(255,255,255,0.02)' },
-                        ticks: { color: '#64748b', font: { size: 9 }, autoSkip: true, maxTicksLimit: esDia ? 12 : 10 }
-                    },
-                    y: {
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#64748b', font: { size: 9 } }
-                    }
+                    x: { type: 'time', time: esDia ? { unit: 'hour', displayFormats: { hour: 'HH:mm' } } : { unit: 'day', displayFormats: { day: 'dd/MM' } }, grid: { color: 'rgba(255,255,255,0.02)' }, ticks: { color: '#64748b', font: { size: 9 }, autoSkip: true, maxTicksLimit: esDia ? 12 : 10 } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 9 } } }
                 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        enabled: true,
-                        backgroundColor: 'rgba(2, 6, 23, 0.9)',
-                        padding: 10
-                    }
-                }
+                plugins: { legend: { display: false }, tooltip: { enabled: true, backgroundColor: 'rgba(2, 6, 23, 0.9)', padding: 10 } }
             }
         };
-
-        if (chartId === 'chartVpd') {
-            config.options.plugins.annotation = { annotations: construirAnotacionesVpd(labels, u) };
-        }
-
+        if (chartId === 'chartVpd') config.options.plugins.annotation = { annotations: construirAnotacionesVpd(labels, unidadVpd()) };
         return config;
     }
 
     function dibujarGraficos(feeds) {
         const u = unidadVpd();
         const labels = feeds.map(f => new Date(f.created_at));
+        
+        // Datos Sensor 1
         const vpdData = feeds.map(f => kpaAUnidad(calcularVPD(parseFloat(f.field1), parseFloat(f.field2)), u));
         const tempData = feeds.map(f => parseFloat(f.field1));
         const humData = feeds.map(f => parseFloat(f.field2));
-
-        const configs = {
-            chartVpd: createChartConfig(labels, vpdData, 'rgba(16, 185, 129, 1)', 'chartVpd'),
-            chartTemp: createChartConfig(labels, tempData, 'rgba(249, 115, 22, 1)', 'chartTemp'),
-            chartHum: createChartConfig(labels, humData, 'rgba(59, 130, 246, 1)', 'chartHum')
+        
+        // Datos Sensor 2 (Campos 5, 6 y 7)
+        const co2Data = feeds.map(f => parseFloat(f.field5) || 0);
+        const temp2Data = feeds.map(f => parseFloat(f.field6) || 0);
+        const hum2Data = feeds.map(f => parseFloat(f.field7) || 0);
+        
+        const configs = { 
+            chartVpd: createChartConfig(labels, vpdData, 'rgba(16, 185, 129, 1)', 'chartVpd'), 
+            chartTemp: createChartConfig(labels, tempData, 'rgba(249, 115, 22, 1)', 'chartTemp'), 
+            chartHum: createChartConfig(labels, humData, 'rgba(59, 130, 246, 1)', 'chartHum'),
+            chartCo2: createChartConfig(labels, co2Data, 'rgba(168, 85, 247, 1)', 'chartCo2'), 
+            chartTemp2: createChartConfig(labels, temp2Data, 'rgba(234, 179, 8, 1)', 'chartTemp2'), 
+            chartHum2: createChartConfig(labels, hum2Data, 'rgba(6, 182, 212, 1)', 'chartHum2') 
         };
-
-        Object.keys(configs).forEach(id => {
-            if (charts[id]) charts[id].destroy();
-            charts[id] = new Chart(document.getElementById(id), configs[id]);
+        
+        Object.keys(configs).forEach(id => { 
+            if (charts[id]) charts[id].destroy(); 
+            charts[id] = new Chart(document.getElementById(id), configs[id]); 
         });
     }
 
     setInterval(() => {
         const hoy = new Date().toISOString().split('T')[0];
-        if (document.getElementById('fechaFiltro').value === hoy) cargarDatos();
+        if (document.getElementById('fechaFiltro').value === hoy) cargarDatosGlobales();
     }, 300000);
 
     document.getElementById('fechaFiltro').value = new Date().toISOString().split('T')[0];
     cargarRangosGuardados();
-    actualizarEtiquetaPeriodo();
     if (typeof lucide !== 'undefined') lucide.createIcons();
-    cargarDatos();
+    cargarDatosGlobales();
 </script>
 </body>
 </html>

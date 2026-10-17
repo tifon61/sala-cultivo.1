@@ -1,0 +1,75 @@
+# Sala de cultivo: broker MQTT + base de datos + backend (API, automatización y web).
+#
+# Es un proyecto de Compose independiente del sistema meteorológico: tiene su
+# propia red interna, sus propios volúmenes y no usa los puertos 8080/8081/5432.
+#
+#   ESP32 ──MQTT:1883──► mosquitto ◄──── backend ────► postgres (solo red interna)
+#                                          │
+#                         celular ──HTTP:8090 (por Tailscale)
+name: sala-cultivo
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    restart: unless-stopped
+    # El entrypoint arma el archivo de contraseñas a partir del .env en cada arranque.
+    entrypoint: ["/bin/sh", "/mosquitto/entrypoint.sh"]
+    environment:
+      MQTT_USUARIO_BACKEND: ${MQTT_USUARIO_BACKEND}
+      MQTT_CLAVE_BACKEND: ${MQTT_CLAVE_BACKEND}
+      MQTT_USUARIO_ESP32: ${MQTT_USUARIO_ESP32}
+      MQTT_CLAVE_ESP32: ${MQTT_CLAVE_ESP32}
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/entrypoint.sh:/mosquitto/entrypoint.sh:ro
+      - mosquitto-datos:/mosquitto/data
+    ports:
+      # El ESP32 está en el Wi-Fi de casa (no en Tailscale), así que el broker
+      # tiene que ser alcanzable desde la red local.
+      - "${MQTT_PUERTO_HOST:-1883}:1883"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cultivo
+      POSTGRES_USER: cultivo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - db-datos:/var/lib/postgresql/data
+    # Sin "ports": Postgres solo es visible dentro de la red de este Compose,
+    # así que no choca con el 5432 del sistema meteorológico.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cultivo -d cultivo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://cultivo:${POSTGRES_PASSWORD}@db:5432/cultivo
+      MQTT_HOST: mosquitto
+      MQTT_PUERTO: 1883
+      MQTT_USUARIO: ${MQTT_USUARIO_BACKEND}
+      MQTT_CLAVE: ${MQTT_CLAVE_BACKEND}
+      DISPOSITIVO: ${DISPOSITIVO:-sala1}
+      TZ: ${TZ}
+    volumes:
+      # Valores iniciales de relés y reglas (solo se usan la primera vez).
+      - ./config/sala.yaml:/app/config/sala.yaml:ro
+    ports:
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PUERTO:-8090}:8000"
+
+volumes:
+  mosquitto-datos:
+  db-datos:

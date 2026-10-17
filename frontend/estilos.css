@@ -109,6 +109,11 @@ button:disabled { opacity: .5; }
 .titulo-con-control { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .titulo-con-control h2 { margin: 0; }
 .titulo-con-control select { width: auto; }
+.titulo-con-control { flex-wrap: wrap; gap: 8px; }
+.controles-historico { display: flex; gap: 8px; }
+.controles-historico label, .rango label { display: grid; gap: 2px; font-size: .7rem; color: var(--tenue); }
+.rango { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.rango[hidden] { display: none; }
 .grafico { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px; margin-bottom: 10px; height: 240px; }
 
 .bitacora, .eventos { list-style: none; padding: 0; margin: 10px 0 0; font-size: .85rem; }

@@ -20,9 +20,37 @@ const ETAPAS = { germinacion: 'Germinación', plantines: 'Plantines', vegetativo
                  secado: 'Secado', curado: 'Curado', vacia: 'Vacía' };
 const TIPOS = { etapa: 'Etapa', nota: 'Nota', riego_nutrientes: 'Riego con nutrientes', poda: 'Poda',
                 trasplante: 'Trasplante', plaga: 'Plaga', cosecha: 'Cosecha', mantenimiento: 'Mantenimiento' };
-const COLORES = ['#10b981', '#38bdf8', '#f59e0b', '#a78bfa', '#f472b6', '#94a3b8'];
+// Un color fijo por variable (el mismo en todos los gráficos y períodos).
+// Los pares que comparten gráfico (DHT vs SCD40) se verificaron para que se
+// distingan también con daltonismo; además el SCD40 va con línea punteada.
+const COLOR_VARIABLE = {
+  temperatura: '#d95926',   // naranja
+  temperatura2: '#9085e9',  // violeta
+  humedad: '#3987e5',       // azul
+  humedad2: '#199e70',      // turquesa
+  dpv: '#d55181',           // magenta
+  co2: '#c98500',           // amarillo
+};
+const PUNTEADAS = new Set(['temperatura2', 'humedad2']);
+const COLOR_OTRA = '#94a3b8';
 
-const info = v => VARIABLES[v] || { nombre: v, unidad: '', dec: 2 };
+// Unidad del DPV: el sistema guarda todo en kPa; la conversión es solo para mostrar.
+// 1 kPa = 10 hPa.
+let unidadDpv = 'kPa';
+try { unidadDpv = localStorage.getItem('unidadDpv') === 'hPa' ? 'hPa' : 'kPa'; } catch {}
+const factorDpv = () => (unidadDpv === 'hPa' ? 10 : 1);
+
+function info(v) {
+  if (v === 'dpv') return { nombre: 'DPV', unidad: unidadDpv, dec: unidadDpv === 'hPa' ? 1 : 2 };
+  return VARIABLES[v] || { nombre: v, unidad: '', dec: 2 };
+}
+// Valor tal como se muestra (convierte el DPV si hace falta).
+const mostrar = (v, valor) => (v === 'dpv' ? valor * factorDpv() : valor);
+// Los motivos que manda el ESP32 vienen en kPa ("dpv 1.02 < 1.10"): los convertimos.
+function motivoMostrado(texto) {
+  if (unidadDpv !== 'hPa' || !texto.startsWith('dpv ')) return texto;
+  return texto.replace(/\d+\.\d+/g, n => (Number(n) * 10).toFixed(1)) + ' hPa';
+}
 const $ = sel => document.querySelector(sel);
 const hora = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const fechaCorta = ts => new Date(ts).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -107,7 +135,7 @@ function pintarPlano() {
       d.className = 'variable' + (!l || l.viejo ? ' vieja' : '');
       d.innerHTML = '<small></small><b></b><span class="unidad"></span>';
       d.children[0].textContent = info(v).nombre;
-      d.children[1].textContent = l ? l.valor.toFixed(info(v).dec) : '—';
+      d.children[1].textContent = l ? mostrar(v, l.valor).toFixed(info(v).dec) : '—';
       d.children[2].textContent = l ? info(v).unidad : '';
       vars.append(d);
     }
@@ -119,7 +147,7 @@ function pintarPlano() {
     for (const r of s.reles) {
       const e = document.createElement('div');
       e.className = 'equipo' + (r.on ? ' on' : '');
-      e.title = r.motivo;
+      e.title = motivoMostrado(r.motivo);
       e.innerHTML = '<span class="icono"></span><span class="nombre-eq"></span>';
       e.firstChild.textContent = ICONOS[r.id] || '⚙️';
       e.lastChild.textContent = `${r.nombre}${r.manual_vigente ? ' ✋' : ''}`;
@@ -199,7 +227,7 @@ function pintarReles(s) {
     }
     const t = tarjetas[r.id];
     t.querySelector('.rele-nombre').textContent = `${ICONOS[r.id] || '⚙️'} ${r.nombre}`;
-    t.querySelector('.rele-motivo').textContent = r.motivo;
+    t.querySelector('.rele-motivo').textContent = motivoMostrado(r.motivo);
     const pastilla = t.querySelector('.pastilla');
     pastilla.textContent = r.on == null ? '—' : (r.on ? 'ENCENDIDO' : 'APAGADO');
     pastilla.classList.toggle('on', !!r.on);
@@ -278,6 +306,22 @@ function armarFormularioRegla(form, sid, rid, regla) {
     input.name = clave;
     if (regla[clave] != null) input.value = regla[clave];
   }
+  // Umbral de DPV: se edita en la unidad elegida y se guarda en kPa.
+  const enDpv = regla.tipo === 'umbral' && (regla.variable || 'dpv') === 'dpv';
+  if (enDpv) {
+    for (const k of ['valor', 'histeresis']) {
+      const campo = form.elements[k];
+      if (campo.value !== '') campo.value = +(Number(campo.value) * factorDpv()).toFixed(3);
+      campo.previousSibling.textContent += ` (${unidadDpv})`;
+    }
+  }
+  // Al cambiar la variable de un umbral se rearma el formulario: así los
+  // números y la unidad corresponden siempre a la variable elegida.
+  if (regla.tipo === 'umbral') {
+    form.elements.variable.onchange = () => armarFormularioRegla(form, sid, rid, {
+      tipo: 'umbral', variable: form.elements.variable.value, encender_si: form.elements.encender_si.value,
+    });
+  }
 
   const ayuda = document.createElement('p');
   ayuda.className = 'ayuda ancho';
@@ -296,6 +340,9 @@ function armarFormularioRegla(form, sid, rid, regla) {
       const valor = form.elements[clave].value;
       if (valor === '') continue;
       nueva[clave] = clase === 'number' ? Number(valor) : valor;
+    }
+    if (enDpv && nueva.variable === 'dpv') {
+      for (const k of ['valor', 'histeresis']) if (k in nueva) nueva[k] = +(nueva[k] / factorDpv()).toFixed(4);
     }
     try {
       await api('PUT', `/api/salas/${sid}/reles/${rid}/regla`, nueva);
@@ -325,9 +372,24 @@ const graficos = {};
 
 async function actualizarHistorico() {
   if (!elegida) return;
-  const horas = $('#periodo').value;
+  const periodo = $('#periodo').value;
+  let consulta;
+  if (periodo === 'rango') {
+    const desde = $('#desde').value, hasta = $('#hasta').value;
+    if (!desde || !hasta) return;  // falta elegir alguna fecha
+    // Fechas sin zona horaria: el servidor las toma en su hora local.
+    consulta = `desde=${desde}T00:00:00&hasta=${hasta}T23:59:59`;
+  } else {
+    consulta = `horas=${periodo}`;
+  }
   let h;
-  try { h = await api('GET', `/api/salas/${elegida}/historico?horas=${horas}`); } catch { return; }
+  try {
+    h = await api('GET', `/api/salas/${elegida}/historico?${consulta}`);
+    $('#error-periodo').textContent = '';
+  } catch (e) {
+    $('#error-periodo').textContent = e.message;
+    return;
+  }
 
   const porUnidad = {};
   for (const [variable, puntos] of Object.entries(h.series)) {
@@ -336,18 +398,27 @@ async function actualizarHistorico() {
   }
   const cont = $('#graficos');
   for (const unidad of Object.keys(graficos)) {
-    if (!porUnidad[unidad]) { graficos[unidad].destroy(); graficos[unidad].canvas.parentElement.remove(); delete graficos[unidad]; }
+    if (!porUnidad[unidad]) {
+      const caja = graficos[unidad].canvas.parentElement;  // antes de destroy(), que lo borra
+      graficos[unidad].destroy();
+      caja.remove();
+      delete graficos[unidad];
+    }
   }
   cont.querySelector('.vacio')?.remove();
   if (!Object.keys(porUnidad).length) cont.insertAdjacentHTML('beforeend', '<p class="vacio">Sin datos en este período.</p>');
 
-  const conFecha = Number(horas) > 24;
+  const conFecha = new Date(h.hasta) - new Date(h.desde) > 36 * 3600 * 1000;
   const ejeX = { min: new Date(h.desde).getTime(), max: new Date(h.hasta).getTime() };
   for (const [unidad, series] of Object.entries(porUnidad)) {
-    const datasets = series.map(([variable, puntos], i) => ({
+    // Primero el DHT y después el SCD40, siempre en el mismo orden.
+    series.sort(([a], [b]) => a.localeCompare(b));
+    const datasets = series.map(([variable, puntos]) => ({
       label: info(variable).nombre,
-      data: puntos.map(([t, v]) => ({ x: new Date(t).getTime(), y: v })),
-      borderColor: COLORES[i % COLORES.length], backgroundColor: COLORES[i % COLORES.length],
+      data: puntos.map(([t, v]) => ({ x: new Date(t).getTime(), y: mostrar(variable, v) })),
+      borderColor: COLOR_VARIABLE[variable] || COLOR_OTRA,
+      backgroundColor: COLOR_VARIABLE[variable] || COLOR_OTRA,
+      borderDash: PUNTEADAS.has(variable) ? [6, 4] : [],
       borderWidth: 2, pointRadius: 0, tension: 0.25,
     }));
     if (graficos[unidad]) {
@@ -379,6 +450,10 @@ async function actualizarHistorico() {
       },
     });
   }
+  // Orden fijo de los gráficos: temperatura, humedad, DPV, CO2 y después el resto.
+  const orden = u => ['°C', '%', 'kPa', 'hPa', 'ppm'].indexOf(u) + 1 || 99;
+  Object.keys(graficos).sort((a, b) => orden(a) - orden(b))
+    .forEach(u => cont.append(graficos[u].canvas.parentElement));
   pintarEventos(h.eventos);
 }
 
@@ -396,7 +471,7 @@ function pintarEventos(eventos) {
     li.children[0].textContent = fechaCorta(e.ts);
     li.children[1].textContent = e.rele;
     li.children[2].textContent = e.estado ? 'ON' : 'OFF';
-    li.children[3].textContent = `(${e.motivo})`;
+    li.children[3].textContent = `(${motivoMostrado(e.motivo || '')})`;
     lista.append(li);
   }
 }
@@ -450,7 +525,30 @@ formBitacora.onsubmit = async ev => {
 
 // ------------------------------------------------------------------ arranque
 
-$('#periodo').addEventListener('change', actualizarHistorico);
+function mostrarRango() {
+  const conRango = $('#periodo').value === 'rango';
+  $('#rango').hidden = !conRango;
+  if (conRango && !$('#desde').value) {  // propone la última semana
+    const hoy = new Date();
+    const fecha = d => d.toLocaleDateString('sv');  // AAAA-MM-DD en hora local
+    $('#hasta').value = fecha(hoy);
+    $('#desde').value = fecha(new Date(hoy - 6 * 864e5));
+  }
+}
+$('#periodo').addEventListener('change', () => { mostrarRango(); actualizarHistorico(); });
+$('#desde').addEventListener('change', actualizarHistorico);
+$('#hasta').addEventListener('change', actualizarHistorico);
+
+$('#unidad-dpv').value = unidadDpv;
+$('#unidad-dpv').addEventListener('change', () => {
+  unidadDpv = $('#unidad-dpv').value;
+  try { localStorage.setItem('unidadDpv', unidadDpv); } catch {}
+  // Las tarjetas se rearman para que el editor de reglas tome la unidad nueva.
+  $('#reles').replaceChildren();
+  Object.keys(tarjetas).forEach(k => delete tarjetas[k]);
+  if (datos) { pintarPlano(); pintarDetalle(); }
+  actualizarHistorico();
+});
 actualizar().then(() => { actualizarHistorico(); actualizarBitacora(); });
 setInterval(actualizar, 5000);
 setInterval(actualizarHistorico, 60000);

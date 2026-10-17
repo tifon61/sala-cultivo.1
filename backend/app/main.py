@@ -133,15 +133,30 @@ async def salas():
 
 
 @app.get("/api/salas/{sid}/historico")
-async def historico(sid: str, horas: float = Query(24, gt=0, le=24 * 120)):
+async def historico(
+    sid: str,
+    horas: float = Query(24, gt=0, le=24 * 120),
+    desde: Optional[datetime] = None,
+    hasta: Optional[datetime] = None,
+):
+    """Series para los gráficos. Con `desde`/`hasta` se pide un período exacto;
+    si no, las últimas `horas`."""
     await _sala_o_404(sid)
-    hasta = datetime.now(timezone.utc)
-    desde = hasta - timedelta(hours=horas)
-    segundos = max(30, int(horas * 3600 / 400))  # ~400 puntos por variable
+    if desde is not None:
+        desde = desde if desde.tzinfo else desde.replace(tzinfo=ZONA)
+        hasta = (hasta if hasta.tzinfo else hasta.replace(tzinfo=ZONA)) if hasta else datetime.now(timezone.utc)
+        if hasta <= desde:
+            raise HTTPException(422, "'hasta' tiene que ser posterior a 'desde'")
+        if hasta - desde > timedelta(days=366):
+            raise HTTPException(422, "el período máximo es de un año")
+    else:
+        hasta = datetime.now(timezone.utc)
+        desde = hasta - timedelta(hours=horas)
+    segundos = max(30, int((hasta - desde).total_seconds() / 400))  # ~400 puntos por variable
     series: dict[str, list] = {}
     for f in await db.historico(servicio.pool, sid, desde, hasta, segundos):
         series.setdefault(f["variable"], []).append([f["t"], round(f["valor"], 3)])
-    eventos = [dict(e) for e in await db.eventos(servicio.pool, sid, desde)]
+    eventos = [dict(e) for e in await db.eventos(servicio.pool, sid, desde, hasta)]
     return {"desde": desde, "hasta": hasta, "series": series, "eventos": eventos}
 
 

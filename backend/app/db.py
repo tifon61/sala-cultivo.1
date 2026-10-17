@@ -147,11 +147,11 @@ async def ultimo_estado_reles(pool) -> list[asyncpg.Record]:
     )
 
 
-async def eventos(pool, sala: str, desde: datetime, limite: int = 100) -> list[asyncpg.Record]:
+async def eventos(pool, sala: str, desde: datetime, hasta: datetime, limite: int = 100) -> list[asyncpg.Record]:
     return await pool.fetch(
         """SELECT ts, rele, estado, motivo FROM eventos_reles
-           WHERE dispositivo = $1 AND ts >= $2 ORDER BY ts DESC LIMIT $3""",
-        sala, desde, limite,
+           WHERE dispositivo = $1 AND ts >= $2 AND ts < $3 ORDER BY ts DESC LIMIT $4""",
+        sala, desde, hasta, limite,
     )
 
 

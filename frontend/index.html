@@ -35,13 +35,30 @@
     <section>
       <div class="titulo-con-control">
         <h2>Histórico</h2>
-        <select id="periodo">
-          <option value="6">6 h</option>
-          <option value="24" selected>24 h</option>
-          <option value="168">7 días</option>
-          <option value="720">30 días</option>
-        </select>
+        <div class="controles-historico">
+          <label>Período
+            <select id="periodo">
+              <option value="6">Últimas 6 h</option>
+              <option value="24" selected>Últimas 24 h</option>
+              <option value="72">Últimos 3 días</option>
+              <option value="168">Últimos 7 días</option>
+              <option value="720">Últimos 30 días</option>
+              <option value="rango">Elegir fechas…</option>
+            </select>
+          </label>
+          <label>DPV en
+            <select id="unidad-dpv">
+              <option value="kPa">kPa</option>
+              <option value="hPa">hPa</option>
+            </select>
+          </label>
+        </div>
       </div>
+      <div id="rango" class="rango" hidden>
+        <label>Desde<input type="date" id="desde"></label>
+        <label>Hasta<input type="date" id="hasta"></label>
+      </div>
+      <p class="error" id="error-periodo"></p>
       <div id="graficos"></div>
     </section>
 

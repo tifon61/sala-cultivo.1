@@ -10,6 +10,11 @@ Cómo funciona:
 
 Cambiar WEB_CLAVE en el .env invalida todas las sesiones abiertas, porque la
 firma se calcula a partir de la clave.
+
+Acceso desde internet (Tailscale Funnel): Funnel le agrega al pedido
+X-Forwarded-For (la IP real del visitante, reemplazando cualquier valor que
+traiga) y X-Forwarded-Proto: https. Con eso limitamos los intentos por IP real
+y marcamos la cookie como Secure (solo viaja cifrada).
 """
 from __future__ import annotations
 
@@ -27,6 +32,25 @@ DURACION_S = 30 * 24 * 3600          # 30 días
 PUBLICO = {"/login.html", "/estilos.css", "/api/login"}
 MAX_FALLOS = 5                       # intentos fallidos seguidos por IP...
 BLOQUEO_S = 60                       # ...antes de hacerla esperar un minuto
+MAX_FALLOS_TOTAL = 20                # y si llegan muchos desde IPs distintas, se frena todo
+# Cabeceras que le dicen al navegador que sea más estricto con esta página.
+CABECERAS_SEGURIDAD = {
+    "X-Frame-Options": "DENY",                 # no se puede meter dentro de otra página
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+def ip_cliente(request: Request) -> str:
+    """IP real: la que pone Funnel en X-Forwarded-For, o la de la conexión."""
+    reenviada = request.headers.get("x-forwarded-for")
+    if reenviada:
+        return reenviada.split(",")[-1].strip()
+    return request.client.host if request.client else "?"
+
+
+def es_https(request: Request) -> bool:
+    return request.headers.get("x-forwarded-proto") == "https" or request.url.scheme == "https"
 
 
 def _llave(clave: str) -> bytes:
@@ -63,15 +87,21 @@ class Acceso:
     async def middleware(self, request: Request, call_next):
         ruta = request.url.path
         if not self.activo or ruta in PUBLICO or token_valido(self.clave, request.cookies.get(COOKIE)):
-            return await call_next(request)
-        if ruta.startswith("/api/"):
-            return JSONResponse({"detail": "Necesitás ingresar la clave"}, status_code=401)
-        return RedirectResponse("/login.html", status_code=303)
+            respuesta = await call_next(request)
+        elif ruta.startswith("/api/"):
+            respuesta = JSONResponse({"detail": "Necesitás ingresar la clave"}, status_code=401)
+        else:
+            respuesta = RedirectResponse("/login.html", status_code=303)
+        respuesta.headers.update(CABECERAS_SEGURIDAD)
+        return respuesta
+
+    def _recientes(self, clave: str) -> list[float]:
+        recientes = [t for t in self._fallos[clave] if time.time() - t < BLOQUEO_S]
+        self._fallos[clave] = recientes
+        return recientes
 
     def bloqueada(self, ip: str) -> bool:
-        recientes = [t for t in self._fallos[ip] if time.time() - t < BLOQUEO_S]
-        self._fallos[ip] = recientes
-        return len(recientes) >= MAX_FALLOS
+        return len(self._recientes(ip)) >= MAX_FALLOS or len(self._recientes("*")) >= MAX_FALLOS_TOTAL
 
     def verificar(self, ip: str, clave: str) -> bool:
         ok = hmac.compare_digest(clave.encode(), self.clave.encode())
@@ -79,4 +109,5 @@ class Acceso:
             self._fallos.pop(ip, None)
         else:
             self._fallos[ip].append(time.time())
+            self._fallos["*"].append(time.time())  # contador de todas las IPs juntas
         return ok

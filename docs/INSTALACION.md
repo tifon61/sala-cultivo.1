@@ -98,6 +98,23 @@ Si imprime un JSON con los relés, el camino funciona.
 
 ---
 
+## 2b. (Opcional) La web desde cualquier lugar, sin Tailscale
+
+Por defecto la web solo se ve desde dispositivos con Tailscale. Para abrirla desde **cualquier** celular o computadora, se publica también con Funnel, en el puerto **10000**. El 443 lo usa el sistema meteorológico y el 8443 el broker; Funnel solo permite esos tres.
+
+```bash
+sudo tailscale funnel --bg --https=10000 http://localhost:8090
+tailscale funnel status
+```
+
+La dirección queda así: `https://<servidor>.<tu-tailnet>.ts.net:10000`. Para sacarla: `sudo tailscale funnel --https=10000 off`.
+
+⚠️ **Antes de hacerlo, poné una `WEB_CLAVE` larga** (16 caracteres o más, letras y números al azar). Los certificados de `*.ts.net` son públicos, así que hay robots que encuentran estas direcciones y prueban claves. Para frenarlos:
+- después de 5 intentos fallidos desde una IP, esa IP espera un minuto;
+- si fallan 20 intentos en total (desde cualquier IP), el ingreso se frena para todos durante un minuto, incluido vos.
+
+Con una clave larga, adivinarla es imposible en la práctica.
+
 ## 3. Firmware: una placa por sala
 
 En la notebook, con el proyecto clonado:

@@ -4,7 +4,7 @@ import time
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.acceso import COOKIE, MAX_FALLOS, Acceso, crear_token, token_valido
+from app.acceso import COOKIE, MAX_FALLOS, MAX_FALLOS_TOTAL, Acceso, crear_token, token_valido
 
 
 def test_token_firmado():
@@ -67,3 +67,16 @@ def test_bloqueo_por_intentos_fallidos():
         assert not acceso.verificar("1.2.3.4", "mal")
     assert acceso.bloqueada("1.2.3.4")
     assert not acceso.bloqueada("5.6.7.8")  # otra IP no se ve afectada
+
+
+def test_bloqueo_global_ante_muchas_ips():
+    _, acceso = cliente("secreta")
+    for i in range(MAX_FALLOS_TOTAL):
+        acceso.verificar(f"10.0.0.{i}", "mal")  # cada IP falla una sola vez
+    assert acceso.bloqueada("10.9.9.9")
+
+
+def test_cabeceras_de_seguridad():
+    c, _ = cliente("secreta")
+    r = c.get("/api/datos")
+    assert r.headers["x-frame-options"] == "DENY"

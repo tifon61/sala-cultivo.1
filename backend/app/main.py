@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from . import db
-from .acceso import COOKIE, DURACION_S, Acceso, crear_token
+from .acceso import COOKIE, DURACION_S, Acceso, crear_token, es_https, ip_cliente
 from .modelos import ETAPAS, TIPOS_BITACORA, ConfigSala, proximo_cambio, regla_adapter
 from .servicio import Servicio
 
@@ -71,6 +71,8 @@ app = FastAPI(title="Salas de cultivo", lifespan=lifespan)
 acceso = Acceso(os.environ.get("WEB_CLAVE", ""))
 if not acceso.activo:
     logging.getLogger(__name__).warning("WEB_CLAVE vacía: la web queda SIN clave")
+elif len(acceso.clave) < 12:
+    logging.getLogger(__name__).warning("WEB_CLAVE tiene menos de 12 caracteres: es débil si la web está en internet")
 app.middleware("http")(acceso.middleware)
 
 
@@ -80,7 +82,7 @@ class PedidoLogin(BaseModel):
 
 @app.post("/api/login")
 async def login(pedido: PedidoLogin, request: Request):
-    ip = request.client.host if request.client else "?"
+    ip = ip_cliente(request)
     if acceso.bloqueada(ip):
         raise HTTPException(429, "Demasiados intentos. Esperá un minuto.")
     if acceso.activo and not acceso.verificar(ip, pedido.clave):
@@ -90,8 +92,9 @@ async def login(pedido: PedidoLogin, request: Request):
         # HttpOnly: el JavaScript de la página no puede leerla (si alguien lograra
         # inyectar código, no podría robar la sesión). SameSite=Strict: otros sitios
         # no pueden usarla para mandar órdenes en tu nombre.
+        # Secure (solo si se entró por HTTPS, p. ej. Funnel): la cookie nunca viaja sin cifrar.
         respuesta.set_cookie(COOKIE, crear_token(acceso.clave), max_age=DURACION_S,
-                             httponly=True, samesite="strict")
+                             httponly=True, samesite="strict", secure=es_https(request))
     return respuesta
 
 

@@ -76,6 +76,21 @@ elif len(acceso.clave) < 12:
 app.middleware("http")(acceso.middleware)
 
 
+@app.middleware("http")
+async def sin_cache_vieja(request: Request, call_next):
+    """Que el navegador no use una copia vieja de la página después de actualizar.
+
+    "no-cache" no significa "no guardar": el navegador guarda la copia pero
+    pregunta antes de usarla si cambió (con ETag). Si no cambió, el servidor
+    responde "304, usá la tuya" y no se descarga nada. Lo de vendor/ (Chart.js,
+    tipografías) no cambia nunca, así que eso sí puede quedar guardado.
+    """
+    respuesta = await call_next(request)
+    if not request.url.path.startswith("/vendor/"):
+        respuesta.headers.setdefault("Cache-Control", "no-cache")
+    return respuesta
+
+
 class PedidoLogin(BaseModel):
     clave: str = Field(max_length=200)
 

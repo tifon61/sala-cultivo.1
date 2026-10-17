@@ -45,6 +45,12 @@ MQTT_SALAS="sala1:CLAVE-LARGA-1 sala2:CLAVE-LARGA-2"
 
 Anotá esas dos claves: van en el firmware de cada placa.
 
+Y la clave para entrar a la web (la pide una vez por dispositivo y la recuerda 30 días):
+
+```
+WEB_CLAVE=<una clave que recuerdes>
+```
+
 Después, levantá todo:
 
 ```bash

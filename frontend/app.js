@@ -70,6 +70,7 @@ async function api(metodo, ruta, cuerpo) {
     headers: cuerpo ? { 'Content-Type': 'application/json' } : {},
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   });
+  if (res.status === 401) { location.href = '/login.html'; return new Promise(() => {}); }  // sesión vencida
   const r = await res.json().catch(() => ({}));
   if (!res.ok) {
     const detalle = Array.isArray(r.detail) ? r.detail.map(d => d.msg.replace('Value error, ', '')).join('; ') : r.detail;
@@ -538,6 +539,11 @@ formBitacora.onsubmit = async ev => {
 };
 
 // ------------------------------------------------------------------ arranque
+
+$('#salir').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  location.href = '/login.html';
+});
 
 function mostrarRango() {
   const conRango = $('#periodo').value === 'rango';

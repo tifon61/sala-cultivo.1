@@ -62,6 +62,7 @@ services:
       MQTT_PUERTO: 1883
       MQTT_USUARIO: backend
       MQTT_CLAVE: ${MQTT_CLAVE_BACKEND}
+      WEB_CLAVE: ${WEB_CLAVE:-}
       TZ: ${TZ}
     volumes:
       # Valores iniciales de salas, relés y reglas (solo se usan la primera vez).

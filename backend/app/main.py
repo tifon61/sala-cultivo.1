@@ -15,11 +15,13 @@ from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
 import yaml
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from . import db
+from .acceso import COOKIE, DURACION_S, Acceso, crear_token
 from .modelos import ETAPAS, TIPOS_BITACORA, ConfigSala, proximo_cambio, regla_adapter
 from .servicio import Servicio
 
@@ -64,6 +66,40 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Salas de cultivo", lifespan=lifespan)
+
+# ----------------------------------------------------------------- acceso
+acceso = Acceso(os.environ.get("WEB_CLAVE", ""))
+if not acceso.activo:
+    logging.getLogger(__name__).warning("WEB_CLAVE vacía: la web queda SIN clave")
+app.middleware("http")(acceso.middleware)
+
+
+class PedidoLogin(BaseModel):
+    clave: str = Field(max_length=200)
+
+
+@app.post("/api/login")
+async def login(pedido: PedidoLogin, request: Request):
+    ip = request.client.host if request.client else "?"
+    if acceso.bloqueada(ip):
+        raise HTTPException(429, "Demasiados intentos. Esperá un minuto.")
+    if acceso.activo and not acceso.verificar(ip, pedido.clave):
+        raise HTTPException(401, "Clave incorrecta")
+    respuesta = JSONResponse({"ok": True})
+    if acceso.activo:
+        # HttpOnly: el JavaScript de la página no puede leerla (si alguien lograra
+        # inyectar código, no podría robar la sesión). SameSite=Strict: otros sitios
+        # no pueden usarla para mandar órdenes en tu nombre.
+        respuesta.set_cookie(COOKIE, crear_token(acceso.clave), max_age=DURACION_S,
+                             httponly=True, samesite="strict")
+    return respuesta
+
+
+@app.post("/api/logout")
+async def logout():
+    respuesta = JSONResponse({"ok": True})
+    respuesta.delete_cookie(COOKIE)
+    return respuesta
 
 
 def _error_validacion(e: ValidationError) -> HTTPException:

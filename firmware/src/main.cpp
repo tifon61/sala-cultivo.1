@@ -35,6 +35,10 @@
 #error "Falta include/config.h: copiá include/config.example.h como config.h y completalo"
 #endif
 
+#ifndef AP_NOMBRE
+#define AP_NOMBRE "Cultivo-" DISPOSITIVO  // config.h viejos no tienen esta línea
+#endif
+
 #ifndef TIPO_DHT
 #define TIPO_DHT DHT11  // config.h viejos no tienen esta línea
 #endif
@@ -348,7 +352,7 @@ void conectarMqtt() {
 // ======================================================================
 
 void iniciarAp() {
-  String nombre = String("Cultivo-") + DISPOSITIVO;
+  String nombre = AP_NOMBRE;
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(nombre.c_str(), AP_CLAVE);
   dns.start(53, "*", WiFi.softAPIP());  // portal cautivo: cualquier dominio lleva a la página

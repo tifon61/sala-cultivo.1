@@ -22,10 +22,12 @@
 #define MQTT_CLAVE     "clave-de-sala1"    // la de sala1 en MQTT_SALAS del .env
 
 // --- Red de emergencia -------------------------------------------------------
-// Si pasa AP_TRAS_MS sin poder hablar con el servidor, la placa crea la red
-// "Cultivo-<DISPOSITIVO>" con esta clave (mínimo 8 caracteres).
-// Conectate con el celular y entrá a http://192.168.4.1
-#define AP_CLAVE       "cambiame123"
+// Si pasa AP_TRAS_MS sin poder hablar con el servidor, la placa crea una red
+// Wi-Fi propia. Conectate con el celular y entrá a http://192.168.4.1
+// Nombre de esa red (máximo 32 caracteres). Mejor algo que no llame la atención.
+// Si borrás esta línea se usa "Cultivo-<DISPOSITIVO>".
+#define AP_NOMBRE      "Taller-1"
+#define AP_CLAVE       "cambiame123"       // mínimo 8 caracteres
 #define AP_TRAS_MS     (2UL * 60UL * 1000UL)
 
 // --- Hora --------------------------------------------------------------------

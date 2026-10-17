@@ -117,6 +117,7 @@ Editá `include/config.h` con los datos de la **sala 1**:
 | `MQTT_PUERTO` | `8443` |
 | `MQTT_TLS` | `true` |
 | `MQTT_CLAVE` | La clave de `sala1` del `.env` |
+| `AP_NOMBRE` | Nombre de la red de emergencia (mejor uno neutro, que no diga "cultivo") |
 | `AP_CLAVE` | Clave de la red de emergencia (mínimo 8 caracteres) |
 | `ZONA_HORARIA` | La tuya (hay ejemplos en el archivo) |
 
@@ -136,7 +137,7 @@ Para la **sala 2**, repetí con `DISPOSITIVO "sala2"` y su clave.
 
 ## 4. Si algo no anda: la red de emergencia
 
-Si un módulo pasa 2 minutos sin hablar con el servidor, crea el Wi-Fi **`Cultivo-sala1`** (o `Cultivo-sala2`) con la clave `AP_CLAVE`.
+Si un módulo pasa 2 minutos sin hablar con el servidor, crea un Wi-Fi propio con el nombre `AP_NOMBRE` (si no lo definiste, **`Cultivo-sala1`** o `Cultivo-sala2`) y la clave `AP_CLAVE`.
 
 1. Conectate con el celular a ese Wi-Fi y abrí **http://192.168.4.1**.
 2. Desde ahí podés:

@@ -597,8 +597,9 @@ $('#btn-renombrar').addEventListener('click', async () => {
 });
 formNombre.addEventListener('submit', ev => { ev.preventDefault(); $('#btn-renombrar').click(); });
 
-// Si el celular pasa de modo claro a oscuro, se rearman los gráficos con los colores del tema nuevo.
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+// Cuando cambia el tema (botón o configuración del celular) se rearman los
+// gráficos, que leen sus colores de estilos.css al crearse.
+function rearmarGraficos() {
   for (const u of Object.keys(graficos)) {
     const caja = graficos[u].canvas.parentElement;
     graficos[u].destroy();
@@ -606,6 +607,17 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     delete graficos[u];
   }
   actualizarHistorico();
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rearmarGraficos);
+
+// Botón de tema: Auto -> Claro -> Oscuro -> Auto (la elección vive en tema.js).
+const NOMBRES_TEMA = { auto: 'Auto', claro: 'Claro', oscuro: 'Oscuro' };
+$('#tema').textContent = NOMBRES_TEMA[temaElegido()];
+$('#tema').addEventListener('click', () => {
+  const siguiente = { auto: 'claro', claro: 'oscuro', oscuro: 'auto' }[temaElegido()];
+  aplicarTema(siguiente);
+  $('#tema').textContent = NOMBRES_TEMA[siguiente];
+  rearmarGraficos();
 });
 
 $('#salir').addEventListener('click', async () => {

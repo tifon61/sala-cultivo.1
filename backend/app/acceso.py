@@ -29,7 +29,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 COOKIE = "sesion"
 DURACION_S = 30 * 24 * 3600          # 30 días
 # Lo que se puede ver sin clave: la página de login, sus estilos y el login en sí.
-PUBLICO = {"/login.html", "/estilos.css", "/api/login"}
+PUBLICO = {"/login.html", "/estilos.css", "/tema.js", "/api/login"}
 PUBLICO_PREFIJOS = ("/vendor/fonts/",)  # tipografías de la pantalla de ingreso
 MAX_FALLOS = 5                       # intentos fallidos seguidos por IP...
 BLOQUEO_S = 60                       # ...antes de hacerla esperar un minuto

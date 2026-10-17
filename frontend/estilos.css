@@ -1,4 +1,4 @@
-/* Panel — estilo app limpia y clara (tipo apps de domótica).
+/* Panel — estilo app limpia (tipo apps de domótica), con modo claro y oscuro.
    Fondo claro, tarjetas blancas con bordes redondeados y sombra suave,
    números grandes y un color propio para cada sala (--sala).
    Tipografía IBM Plex Sans, copiada en vendor/fonts (no depende de internet). */
@@ -27,6 +27,7 @@
   --sala-3: #c2410c;   /* naranja */
   --sala-4: #2563eb;   /* azul */
   --sala: var(--sala-1);
+  --sobre-sala: #ffffff;   /* texto encima del color de la sala */
   /* Un color por variable en los gráficos (validados para daltonismo sobre blanco) */
   --c-temperatura: #d24a1e;
   --c-temperatura2: #6250d6;
@@ -38,6 +39,63 @@
   --tinta: var(--texto);
   --linea-fuerte: #d1d5db;
   color-scheme: light;
+}
+
+/* Modo oscuro: automático si el celular está en oscuro (salvo que se haya
+   elegido "claro"), o forzado con el botón de tema (data-tema="oscuro"). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+  --fondo: #0f1115;
+  --tarjeta: #181b21;
+  --texto: #f3f4f6;
+  --tenue: #9ca3af;
+  --suave: #6b7280;
+  --linea: #2a2f37;
+  --campo: #20242b;
+  --ok: #4ade80;
+  --alerta: #fbbf24;
+  --error: #f87171;
+  --sombra: 0 0 0 1px #262a31;
+  --sala-1: #34d3a6;
+  --sala-2: #a597ff;
+  --sala-3: #fb8a4f;
+  --sala-4: #6aa6ff;
+  --sobre-sala: #0b0d10;
+  --c-temperatura: #e66a3c;
+  --c-temperatura2: #9085e9;
+  --c-humedad: #3987e5;
+  --c-humedad2: #199e70;
+  --c-dpv: #d55181;
+  --c-co2: #c98500;
+  --linea-fuerte: #3a3f48;
+  color-scheme: dark;
+  }
+}
+:root[data-tema="oscuro"] {
+  --fondo: #0f1115;
+  --tarjeta: #181b21;
+  --texto: #f3f4f6;
+  --tenue: #9ca3af;
+  --suave: #6b7280;
+  --linea: #2a2f37;
+  --campo: #20242b;
+  --ok: #4ade80;
+  --alerta: #fbbf24;
+  --error: #f87171;
+  --sombra: 0 0 0 1px #262a31;
+  --sala-1: #34d3a6;
+  --sala-2: #a597ff;
+  --sala-3: #fb8a4f;
+  --sala-4: #6aa6ff;
+  --sobre-sala: #0b0d10;
+  --c-temperatura: #e66a3c;
+  --c-temperatura2: #9085e9;
+  --c-humedad: #3987e5;
+  --c-humedad2: #199e70;
+  --c-dpv: #d55181;
+  --c-co2: #c98500;
+  --linea-fuerte: #3a3f48;
+  color-scheme: dark;
 }
 
 /* ------------------------------------------------------------- base */
@@ -133,7 +191,7 @@ button, select, input, textarea {
 }
 button { cursor: pointer; font-weight: 600; }
 button:disabled { opacity: .5; }
-button.principal { background: var(--sala); color: #fff; }
+button.principal { background: var(--sala); color: var(--sobre-sala); }
 input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--sala); outline-offset: 1px; }
 label { display: grid; gap: 5px; font-size: .78rem; color: var(--tenue); }
 .error { color: var(--error); font-size: .82rem; margin: 0; }
@@ -154,7 +212,7 @@ label { display: grid; gap: 5px; font-size: .78rem; color: var(--tenue); }
 .rele-cabecera { display: flex; align-items: center; gap: 9px; }
 .rele-cabecera h3 { font-size: 1.05rem; }
 .estado { margin-left: auto; padding: 4px 10px; border-radius: 999px; background: var(--campo); font-size: .75rem; font-weight: 600; color: var(--tenue); }
-.estado.on { background: var(--sala); color: #fff; }
+.estado.on { background: var(--sala); color: var(--sobre-sala); }
 .rele-motivo { margin: 6px 0 0; font-size: .82rem; color: var(--tenue); min-height: 1.4em; }
 .rele-controles {                               /* control segmentado */
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
@@ -166,7 +224,7 @@ label { display: grid; gap: 5px; font-size: .78rem; color: var(--tenue); }
 .rele-regla { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 10px; }
 .rele-regla summary { cursor: pointer; font-size: .85rem; font-weight: 500; color: var(--tenue); }
 .rele-regla .formulario { margin-top: 10px; }
-.rele-regla button[type="submit"], .rele-regla .formulario > button { background: var(--sala); color: #fff; }
+.rele-regla button[type="submit"], .rele-regla .formulario > button { background: var(--sala); color: var(--sobre-sala); }
 
 /* ------------------------------------------------------------- histórico */
 .controles-historico { display: flex; gap: 8px; margin-left: auto; font-size: .9rem; font-weight: 400; }

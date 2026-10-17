@@ -1,50 +1,60 @@
-// Copiá este archivo como config.h y completá tus datos:
+// Copiá este archivo como config.h (uno por placa) y completá tus datos:
 //   cp include/config.example.h include/config.h
 // config.h no se sube a git porque tiene contraseñas.
+//
+// Wi-Fi y servidor también se pueden cambiar después desde la red de
+// emergencia del ESP32 (sin volver a programarlo). Lo de acá es el valor inicial.
 #pragma once
 
-// --- Wi-Fi de casa --------------------------------------------------------
-#define WIFI_SSID      "mi-wifi"
-#define WIFI_CLAVE     "clave-wifi"
-
-// --- Broker MQTT (el servidor casero, IP de la red LOCAL, no la de Tailscale)
-#define MQTT_HOST      "192.168.1.50"
-#define MQTT_PUERTO    1883
-#define MQTT_USUARIO   "esp32"            // MQTT_USUARIO_ESP32 del .env
-#define MQTT_CLAVE     "cambiame-esp32"   // MQTT_CLAVE_ESP32 del .env
-
-// Tiene que coincidir con DISPOSITIVO del .env
+// --- Identidad -------------------------------------------------------------
+// "sala1" o "sala2". También es el USUARIO MQTT de esta placa (el broker solo
+// le deja tocar los tópicos cultivo/<su-id>/...).
 #define DISPOSITIVO    "sala1"
 
-// --- Sensores (comentá el #define de lo que no tengas) ------------------
-#define USAR_SHT31         // temperatura + humedad (I2C, dirección 0x44)
-#define USAR_SCD4X         // CO2 + temperatura2 + humedad2 (SCD40/SCD41, I2C 0x62)
-#define USAR_SUELO         // humedad de suelo capacitiva (analógica)
+// --- Wi-Fi del lugar donde está la sala -------------------------------------
+#define WIFI_SSID      "wifi-de-la-sala"
+#define WIFI_CLAVE     "clave-wifi"
 
-#define PIN_SDA        21
+// --- Servidor (a través de Tailscale Funnel, ver README) -------------------
+#define MQTT_HOST      "servidor.tu-tailnet.ts.net"
+#define MQTT_PUERTO    8443
+#define MQTT_TLS       true                // false solo para pruebas en la red local
+#define MQTT_CLAVE     "clave-de-sala1"    // la de sala1 en MQTT_SALAS del .env
+
+// --- Red de emergencia -------------------------------------------------------
+// Si pasa AP_TRAS_MS sin poder hablar con el servidor, la placa crea la red
+// "Cultivo-<DISPOSITIVO>" con esta clave (mínimo 8 caracteres).
+// Conectate con el celular y entrá a http://192.168.4.1
+#define AP_CLAVE       "cambiame123"
+#define AP_TRAS_MS     (2UL * 60UL * 1000UL)
+
+// --- Hora --------------------------------------------------------------------
+// Zona horaria en formato POSIX. Argentina: "<-03>3". México (centro): "CST6".
+// España: "CET-1CEST,M3.5.0,M10.5.0/3". Chile: "<-04>4<-03>,M9.1.6/24,M4.1.6/24"
+#define ZONA_HORARIA   "<-03>3"
+
+// --- Sensores ----------------------------------------------------------------
+#define PIN_DHT        4                   // DHT11: temperatura y humedad
+#define PIN_SDA        21                  // SCD40: CO2 (+ temperatura2 y humedad2)
 #define PIN_SCL        22
 
-// Sensor de suelo: usar pines de ADC1 (32-39). Los de ADC2 no funcionan con Wi-Fi.
-#define PIN_SUELO1     34
-// Calibración: lectura cruda con el sensor al aire (seco) y en un vaso de agua (mojado).
-#define SUELO_SECO     3000
-#define SUELO_MOJADO   1300
-
-#define INTERVALO_TELEMETRIA_MS  30000
-
-// --- Relés ----------------------------------------------------------------
-// id (igual que en config/sala.yaml), pin GPIO, y estado "seguro" que se aplica
-// al arrancar y si se pierde contacto con el servidor.
+// --- Relés -------------------------------------------------------------------
+// id (igual que en config/salas.yaml del servidor) y pin GPIO.
 // Pines elegidos porque no afectan el arranque del ESP32: 25, 26, 27, 32, 33.
 #define RELES { \
-    {"luz",           26, false}, \
-    {"extractor",     27, false}, \
-    {"humidificador", 25, false}, \
-    {"riego",         33, false}, \
+    {"riego",            26}, \
+    {"humidificador",    27}, \
+    {"deshumidificador", 25}, \
+    {"luz",              33}, \
 }
-
-// La mayoría de los módulos de relés de 4/8 canales se activan con nivel BAJO.
+// La mayoría de los módulos de 4 relés se activan con nivel BAJO.
 #define RELE_ACTIVO_BAJO true
 
-// Si no llega ninguna orden del servidor en este tiempo -> modo seguro.
-#define FAILSAFE_MS    (5UL * 60UL * 1000UL)
+// Configuración que usa la placa la primera vez, antes de hablar con el servidor.
+// Después se reemplaza por la del servidor (o la que cargues en la red de emergencia).
+static const char CONFIG_INICIAL[] = R"({"version": 0, "reles": {
+  "riego":            {"modo": "auto", "regla": {"tipo": "pulsos", "encendido_s": 20, "cada_min": 180, "desde": "08:00", "hasta": "20:00"}},
+  "humidificador":    {"modo": "auto", "regla": {"tipo": "umbral", "variable": "dpv", "encender_si": "mayor", "valor": 1.2, "histeresis": 0.1}},
+  "deshumidificador": {"modo": "auto", "regla": {"tipo": "umbral", "variable": "dpv", "encender_si": "menor", "valor": 0.8, "histeresis": 0.1}},
+  "luz":              {"modo": "auto", "regla": {"tipo": "horario", "encender": "06:00", "apagar": "00:00"}}
+}})";

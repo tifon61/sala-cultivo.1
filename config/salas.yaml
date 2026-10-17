@@ -1,0 +1,55 @@
+# Salas y su configuración INICIAL.
+#
+# Este archivo solo se lee cuando una sala todavía no existe en la base de datos.
+# Después todo se cambia desde la web (y queda guardado en Postgres).
+#
+# - El id de cada sala (sala1, sala2) es el DISPOSITIVO del firmware y su
+#   usuario MQTT (ver MQTT_SALAS en .env).
+# - Los ids de los relés (riego, humidificador...) tienen que coincidir con
+#   RELES en firmware/include/config.h.
+# - La etapa (vegetativo, floración...) se registra desde la web, en la bitácora,
+#   con la fecha real en que cambió.
+#
+# Tipos de regla (las ejecuta el ESP32, con o sin internet):
+#   horario: prendido entre "encender" y "apagar" (puede cruzar medianoche).
+#   umbral:  mira una variable (dpv, temperatura, humedad, co2...).
+#            encender_si "mayor" -> prende cuando valor > umbral y apaga cuando
+#            baja de umbral - histeresis. "menor" es al revés.
+#   pulsos:  prende "encendido_s" segundos cada "cada_min" minutos, contando
+#            desde "desde" y solo hasta "hasta" (sin ventana = todo el día).
+#
+# DPV alto = aire seco -> humidificador. DPV bajo = aire húmedo -> deshumidificador.
+# Dejá un hueco entre los dos umbrales para que nunca funcionen a la vez.
+
+salas:
+  sala1:
+    nombre: Sala 1
+    reles:
+      riego:
+        nombre: Riego
+        regla: {tipo: pulsos, encendido_s: 20, cada_min: 180, desde: "08:00", hasta: "20:00"}
+      humidificador:
+        nombre: Humidificador
+        regla: {tipo: umbral, variable: dpv, encender_si: mayor, valor: 1.2, histeresis: 0.1}
+      deshumidificador:
+        nombre: Deshumidificador
+        regla: {tipo: umbral, variable: dpv, encender_si: menor, valor: 0.8, histeresis: 0.1}
+      luz:
+        nombre: Luz
+        regla: {tipo: horario, encender: "06:00", apagar: "00:00"}    # 18/6
+
+  sala2:
+    nombre: Sala 2
+    reles:
+      riego:
+        nombre: Riego
+        regla: {tipo: pulsos, encendido_s: 30, cada_min: 240, desde: "09:00", hasta: "19:00"}
+      humidificador:
+        nombre: Humidificador
+        regla: {tipo: umbral, variable: dpv, encender_si: mayor, valor: 1.6, histeresis: 0.1}
+      deshumidificador:
+        nombre: Deshumidificador
+        regla: {tipo: umbral, variable: dpv, encender_si: menor, valor: 1.1, histeresis: 0.1}
+      luz:
+        nombre: Luz
+        regla: {tipo: horario, encender: "07:00", apagar: "19:00"}    # 12/12

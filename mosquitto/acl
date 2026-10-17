@@ -1,0 +1,13 @@
+# Quién puede leer/escribir qué tópicos.
+# El broker queda expuesto a internet (vía Tailscale Funnel), así que cada
+# módulo solo puede tocar lo suyo: %u se reemplaza por su usuario (sala1, sala2).
+
+# El backend ve y escribe todo.
+user backend
+topic readwrite cultivo/#
+
+# Cada módulo publica sus datos y lee SOLO su configuración.
+pattern write cultivo/%u/telemetria
+pattern write cultivo/%u/estado
+pattern write cultivo/%u/reles
+pattern read cultivo/%u/config

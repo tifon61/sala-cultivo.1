@@ -7,6 +7,7 @@
   --verde: #10b981;
   --ambar: #f59e0b;
   --rojo: #ef4444;
+  --azul: #38bdf8;
 }
 
 * { box-sizing: border-box; }
@@ -19,53 +20,79 @@ body {
 }
 
 header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--borde);
-  position: sticky;
-  top: 0;
-  background: var(--fondo);
-  z-index: 1;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px; border-bottom: 1px solid var(--borde);
+  position: sticky; top: 0; background: var(--fondo); z-index: 2;
 }
-h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: .05em; }
+h1 { margin: 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: .05em; }
 h1 span { color: var(--verde); }
 h2 { font-size: .75rem; text-transform: uppercase; letter-spacing: .15em; color: var(--tenue); margin: 0 0 10px; }
 h3 { margin: 0; font-size: 1.05rem; }
 
-main { max-width: 900px; margin: 0 auto; padding: 16px; }
-section { margin-bottom: 28px; }
+main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+section { margin-bottom: 26px; }
+.tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 14px; }
 
 .conexion { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--tenue); }
-.punto { width: 10px; height: 10px; border-radius: 50%; background: var(--tenue); }
-.conexion.ok .punto { background: var(--verde); }
-.conexion.mal .punto { background: var(--rojo); }
+.punto { width: 10px; height: 10px; border-radius: 50%; background: var(--tenue); flex: none; }
+.ok > .punto, .punto.ok { background: var(--verde); }
+.mal > .punto, .punto.mal { background: var(--rojo); }
 
-.grilla-lecturas { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-.lectura { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px; }
-.lectura .nombre { font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--tenue); }
-.lectura .valor { font-size: 1.7rem; font-weight: 700; }
-.lectura .unidad { font-size: .9rem; color: var(--tenue); margin-left: 3px; }
-.lectura.vieja .valor { color: var(--tenue); }
+/* ------------------------------------------------------------- esquema */
+.plano {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 3px solid #475569; border-radius: 6px; overflow: hidden;
+}
+.sala-plano {
+  padding: 12px; cursor: pointer; min-width: 0;
+  background: repeating-linear-gradient(45deg, #0b1222, #0b1222 12px, #0d1527 12px, #0d1527 24px);
+}
+.sala-plano + .sala-plano { border-left: 3px solid #475569; }  /* la pared compartida */
+.sala-plano.elegida { outline: 2px solid var(--verde); outline-offset: -2px; }
+.sala-plano .titulo { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.etapa { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 99px; font-size: .7rem; font-weight: 700; background: var(--borde); }
+.etapa.floracion { background: #7c2d12; color: #fed7aa; }
+.etapa.vegetativo { background: #14532d; color: #bbf7d0; }
+.variables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; margin: 10px 0; }
+.variable small { display: block; font-size: .62rem; color: var(--tenue); text-transform: uppercase; letter-spacing: .08em; }
+.variable b { font-size: 1.25rem; }
+.variable .unidad { font-size: .75rem; color: var(--tenue); margin-left: 2px; }
+.variable.vieja b { color: var(--tenue); }
+.equipos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.equipo { min-width: 0; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; background: #111827; font-size: .75rem; opacity: .55; }
+.equipo .icono { font-size: 1.2rem; filter: grayscale(1); }
+.equipo.on { opacity: 1; background: #064e3b; box-shadow: 0 0 12px #10b98155; }
+.equipo.on .icono { filter: none; }
+.equipo .nombre-eq { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proximos { margin: 8px 0 0; padding: 0; list-style: none; font-size: .75rem; color: var(--tenue); }
+.proximos b { color: var(--texto); }
 
-.lista-reles { display: grid; gap: 10px; }
-.rele { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 14px; }
+/* En el celular: los equipos pasan a una fila de íconos con el nombre abajo. */
+@media (max-width: 560px) {
+  .sala-plano { padding: 10px 8px; }
+  .variable b { font-size: 1.05rem; }
+  .equipos { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .equipo { flex-direction: column; gap: 2px; padding: 6px 2px; font-size: .55rem; text-align: center; }
+  .equipo .nombre-eq { max-width: 100%; }
+  .etapa { font-size: .62rem; }
+}
+
+/* ------------------------------------------------------------- detalle */
+.pestanas { display: flex; gap: 6px; margin-bottom: 14px; }
+.pestanas button { flex: 1; }
+.modulo { font-size: .8rem; color: var(--tenue); margin-bottom: 12px; }
+.modulo .alerta { color: var(--ambar); }
+
+.lista-reles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 .rele-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .rele-motivo { margin: 4px 0 0; color: var(--tenue); font-size: .85rem; }
-.rele-aviso { color: var(--ambar); font-size: .8rem; margin: 8px 0 0; }
 .pastilla { padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: .8rem; background: var(--borde); white-space: nowrap; }
 .pastilla.on { background: var(--verde); color: var(--fondo); }
 
 .rele-controles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
-button, select, input {
-  font: inherit;
-  color: var(--texto);
-  background: var(--borde);
-  border: 1px solid #334155;
-  border-radius: 10px;
-  padding: 10px 8px;
-  min-height: 44px;   /* tamaño cómodo para el dedo */
+button, select, input, textarea {
+  font: inherit; color: var(--texto); background: var(--borde);
+  border: 1px solid #334155; border-radius: 10px; padding: 10px 8px; min-height: 44px; width: 100%;
 }
 button { cursor: pointer; font-weight: 600; }
 button.activo { background: var(--verde); color: var(--fondo); border-color: var(--verde); }
@@ -73,16 +100,20 @@ button:disabled { opacity: .5; }
 
 .rele-regla { margin-top: 12px; }
 .rele-regla summary { cursor: pointer; color: var(--tenue); font-size: .85rem; }
-.form-regla { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.form-regla label { display: grid; gap: 4px; font-size: .75rem; color: var(--tenue); }
-.form-regla .ancho { grid-column: 1 / -1; }
-.form-regla .error { color: var(--rojo); font-size: .8rem; grid-column: 1 / -1; }
+.form-regla, .form-bitacora { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.form-regla label, .form-bitacora label { display: grid; gap: 4px; font-size: .75rem; color: var(--tenue); }
+.ancho { grid-column: 1 / -1; }
+.error { color: var(--rojo); font-size: .8rem; margin: 0; }
+.ayuda { color: var(--tenue); font-size: .75rem; margin: 0; }
 
 .titulo-con-control { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .titulo-con-control h2 { margin: 0; }
+.titulo-con-control select { width: auto; }
 .grafico { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px; margin-bottom: 10px; height: 240px; }
 
-.eventos { list-style: none; padding: 0; margin: 0; font-size: .85rem; }
-.eventos li { padding: 8px 0; border-bottom: 1px solid var(--borde); color: var(--tenue); }
-.eventos b { color: var(--texto); }
+.bitacora, .eventos { list-style: none; padding: 0; margin: 10px 0 0; font-size: .85rem; }
+.bitacora li, .eventos li { padding: 8px 0; border-bottom: 1px solid var(--borde); color: var(--tenue); }
+.bitacora li { display: flex; justify-content: space-between; gap: 8px; }
+.bitacora b, .eventos b { color: var(--texto); }
+.bitacora button { width: auto; min-height: 0; padding: 2px 10px; font-size: .75rem; }
 .vacio { color: var(--tenue); font-size: .85rem; }

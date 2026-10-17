@@ -1,71 +1,57 @@
 # Cómo funciona (para aprender)
 
-Esta guía recorre el sistema en el orden en que viaja un dato: del sensor a la base de datos, de ahí al celular, y de vuelta del celular al relé. En cada parte te dice qué archivo mirar.
+Esta guía sigue el camino de un dato: del sensor al servidor y al celular, y de vuelta como orden a un relé. En cada parte te indica qué archivo mirar.
 
 ---
 
-## 1. La idea general: un cerebro y unas manos
+## 1. La idea general: quién decide
 
-- El **ESP32** hace de *manos y ojos*: mide, publica las mediciones y obedece órdenes.
-- El **backend** (en el servidor) hace de *cerebro*: guarda los datos y decide qué hacer.
+En la primera versión el servidor decidía todo y el ESP32 solo obedecía. Como ahora las salas están **lejos** del servidor, ese diseño es frágil: si se corta internet, nadie riega.
 
-¿Por qué no poner la lógica en el ESP32? Porque así cambiás un horario o un umbral desde el celular y listo. No hace falta volver a programar la placa, y toda la historia queda en un solo lugar.
+Por eso ahora **cada ESP32 decide solo**, con reglas que le manda el servidor:
 
-El riesgo de este diseño es quedarse sin cerebro: el servidor se apaga o se corta el Wi-Fi. Por eso el ESP32 tiene **una sola** decisión propia, el *modo seguro* (ver punto 5).
+| | ESP32 (en la sala) | Servidor (en casa) |
+|---|---|---|
+| Lee sensores | ✅ | |
+| Evalúa reglas y mueve relés | ✅ cada 1 s, con o sin internet | |
+| Guarda la configuración | ✅ en su flash (NVS) | ✅ en Postgres (la "oficial") |
+| Historia, gráficos, bitácora | | ✅ |
+| Dónde la cambiás | Red de emergencia (solo en el lugar) | Web, desde cualquier lugar |
+
+La regla de convivencia es simple: **cuando hay conexión, manda el servidor**.
 
 ---
 
-## 2. MQTT: cómo se hablan el ESP32 y el servidor
+## 2. Cómo llega el ESP32 al servidor: MQTT + Tailscale Funnel
 
-MQTT es un protocolo de mensajes del tipo **publicar/suscribir**:
+**MQTT** es un sistema de mensajes del tipo *publicar/suscribir*:
 
-- Hay un intermediario, el **broker** (Mosquitto, un contenedor).
-- Cada mensaje va a un **tópico**, que es un texto con forma de ruta, como `cultivo/sala1/telemetria`.
-- Quien publica no sabe quién escucha. Quien se suscribe recibe todo lo que llegue a ese tópico.
+- Hay un intermediario, el broker (Mosquitto).
+- Cada mensaje va a un *tópico*, como `cultivo/sala1/telemetria`.
+- Quien publica no sabe quién escucha.
 
-¿Por qué no HTTP? Porque el ESP32 necesita *recibir* órdenes. Con MQTT, la placa abre una conexión al broker y la mantiene abierta, y el servidor le manda los mensajes por ahí. No hace falta abrir puertos en el ESP32 ni que este pregunte cada segundo "¿hay algo nuevo?".
-
-Los tópicos de este proyecto:
+El ESP32 abre una conexión saliente hacia el broker y la mantiene abierta. Por esa misma conexión le llegan las órdenes, sin abrir puertos del lado de la sala.
 
 | Tópico | Quién publica | Contenido |
 |---|---|---|
-| `cultivo/sala1/telemetria` | ESP32 | `{"temperatura":24.3,"humedad":61,"co2":800,...}` cada 30 s |
-| `cultivo/sala1/estado` | ESP32 / broker | `online` u `offline` |
-| `cultivo/sala1/rele/luz/set` | backend | `ON` / `OFF`: la orden |
-| `cultivo/sala1/rele/luz/estado` | ESP32 | `ON` / `OFF`: la confirmación de lo que aplicó |
+| `cultivo/sala1/telemetria` | ESP32 | `{"ts":…, "temperatura":24.3, "dpv":1.1, "co2":800}` cada 30 s |
+| `cultivo/sala1/reles` | ESP32 (retained) | Qué equipo está prendido y por qué |
+| `cultivo/sala1/estado` | ESP32 / broker | `online` u `offline` (testamento) |
+| `cultivo/sala1/config` | servidor (retained) | La configuración completa de la sala |
 
-Hay tres conceptos de MQTT que vale la pena conocer:
+Tres conceptos que conviene entender:
 
-- **Retained:** el broker guarda el último mensaje del tópico y se lo entrega al que se suscribe después. Se usa para `estado`: si el backend se reinicia, sabe enseguida cómo está cada relé.
-- **Testamento (Last Will, LWT):** al conectarse, el ESP32 le deja al broker un mensaje para publicar si la conexión se corta de golpe: `offline`. Así la web se entera aunque la placa no haya podido avisar. Está en `conectarMqtt()` del firmware.
-- **Comodín `+`:** `cultivo/sala1/rele/+/set` significa "cualquier relé". El ESP32 se suscribe así una sola vez para todos.
+- **Retained:** el broker guarda el último mensaje de ese tópico. La configuración se publica así, de modo que si el ESP32 estaba desconectado cuando la cambiaste, la recibe **apenas vuelve**.
+- **Testamento (LWT):** el ESP32 deja dicho "si me caigo, publicá `offline`". Así la web sabe que se desconectó aunque la placa no haya podido avisar.
+- **ACL:** cada placa usa como usuario el id de su sala, y `mosquitto/acl` usa `%u` para que `sala1` solo pueda tocar `cultivo/sala1/...`. Es importante porque el broker está en internet.
 
-👉 Para *ver* el tráfico en vivo, abrí una terminal con:
-`docker compose exec mosquitto mosquitto_sub -u backend -P <clave> -t 'cultivo/#' -v`
-
----
-
-## 3. Guardar las mediciones (`backend/app/servicio.py`, `backend/app/db.py`)
-
-Cuando llega un mensaje a `telemetria`, el backend sigue estos pasos:
-
-1. Parsea el JSON y descarta lo que no sea un número válido. Nunca hay que confiar en lo que llega por la red.
-2. Si hay `temperatura` y `humedad`, calcula el **DPV** (déficit de presión de vapor) con la misma fórmula que tu dashboard de ThingSpeak.
-3. Inserta una fila por variable en la tabla `mediciones`.
-
-La tabla tiene formato **"largo"**: `(ts, dispositivo, variable, valor)`. La alternativa sería una columna por sensor. La ventaja del formato largo es que, si mañana agregás un sensor `suelo2`, no hay que tocar la base: el ESP32 manda una clave nueva en el JSON y aparece sola, con tarjeta y gráfico incluidos.
-
-Para los gráficos de muchos días no se mandan miles de puntos: `date_bin` agrupa las mediciones en intervalos y promedia (por ejemplo, 30 días quedan en unos 400 puntos por variable). Mirá `historico()` en `db.py`.
-
-¿Por qué Postgres en un contenedor propio y sin `ports:`? Así queda accesible solo dentro de la red de este Compose y no choca con el 5432 del sistema meteorológico. Si querés curiosear la base:
-`docker compose exec db psql -U cultivo -d cultivo`
-y probá por ejemplo `SELECT * FROM mediciones ORDER BY ts DESC LIMIT 10;`.
+**Tailscale Funnel** (ver `docs/INSTALACION.md`) publica el broker en `servidor.tu-tailnet.ts.net:8443`. Además agrega **TLS**: el cifrado y la verificación de que el servidor es quien dice ser. El ESP32 lleva adentro los certificados raíz de Let's Encrypt (`firmware/src/certificados.h`) y rechaza cualquier servidor que no tenga un certificado válido para ese nombre. Sin TLS, cualquiera en el camino podría leer las claves o mandar órdenes falsas.
 
 ---
 
-## 4. Decidir los relés (`backend/app/automatizacion.py`)
+## 3. Las reglas (`firmware/src/reglas.cpp`)
 
-Cada 10 segundos (o al instante, si tocaste un botón en la web), el backend recorre los relés y decide para cada uno:
+Están escritas en C++ "puro", sin nada de Arduino, para poder probarlas en la PC (`firmware/test/test_reglas`). Cada segundo, para cada relé:
 
 ```
 ¿Está en manual y no venció?  ──sí──►  lo que pediste
@@ -74,58 +60,75 @@ Cada 10 segundos (o al instante, si tocaste un botón en la web), el backend rec
    aplicar su regla automática
 ```
 
-Este archivo está escrito con **funciones puras**: no leen la base ni MQTT, solo reciben datos y devuelven una `Decision(encendido, motivo)`. Por eso es fácil de probar (mirá `backend/tests/test_automatizacion.py`), y el "motivo" es el texto que ves en la web debajo de cada relé.
+- **pulsos** (riego): prende `encendido_s` segundos cada `cada_min` minutos, contando desde la hora `desde` y solo hasta `hasta`. Ejemplo: 20 s cada 3 h desde las 08:00 riega a las 08:00, 11:00, 14:00 y 17:00.
+- **umbral con histéresis** (DPV): el humidificador se prende si el DPV supera 1,2 y recién se apaga cuando baja de 1,1. Esa franja evita que el relé prenda y apague sin parar. El deshumidificador es el espejo (DPV bajo). Si sus umbrales no se pisan, nunca funcionan a la vez; hay un test que lo verifica.
+- **horario** (luz): prendida entre dos horas; puede cruzar la medianoche.
 
-Las tres reglas:
+Decisiones de seguridad que vale la pena notar:
 
-- **horario:** prendido entre dos horas. El caso que cruza la medianoche (por ejemplo, 18:00 → 06:00) se resuelve en `en_ventana()`.
-- **umbral con histéresis:** imaginá el extractor con umbral de 28 °C. Sin histéresis, a 28,0 se prende, baja a 27,9 y se apaga, sube y se prende otra vez… El relé "tiritea" y se gasta. Con histéresis de 1,5 se prende arriba de 28 y recién se apaga debajo de 26,5. En el medio, mantiene lo que estaba haciendo.
-- **ciclo:** por ejemplo, riego de 2 minutos cada 8 horas desde las 09:00, dos veces por día.
+- Si un dato tiene más de 3 minutos, la regla de umbral **apaga**. Sin saber la humedad, no conviene dejar el humidificador prendido.
+- **Sin hora** (por ejemplo, la placa se reinició sin internet):
+  - la luz no puede seguir su horario y queda apagada;
+  - los pulsos de riego siguen, contados desde el arranque: mejor regar a cualquier hora que no regar;
+  - un manual con tiempo límite se ignora, porque no se podría saber cuándo vence (y una bomba manual sin fin inunda la sala).
 
-Un detalle de seguridad: si el dato de un sensor tiene más de 3 minutos, la regla de umbral **apaga** el relé. Si no sabés la humedad, es mejor no dejar el humidificador prendido "por las dudas".
-
-Cada cambio queda en `eventos_reles`, que es la lista de "Últimos cambios" de la web.
-
----
-
-## 5. El ESP32 obedece y se cuida solo (`firmware/src/main.cpp`)
-
-- El backend reenvía la orden de cada relé **cada 10 s**, aunque no haya cambiado. Ese reenvío funciona como un "latido".
-- Si el ESP32 pasa 5 minutos (`FAILSAFE_MS`) sin recibir órdenes, pone cada relé en su `estadoSeguro`, que por defecto es apagado.
-- Al arrancar, los relés quedan en estado seguro hasta que llegue la primera orden. Antes de configurar cada pin como salida se le fija el nivel, para que los relés no "pestañeen" al encender la placa.
-- **Lógica inversa (activo bajo):** la mayoría de los módulos de relés se activan con 0 V. Por eso existe `RELE_ACTIVO_BAJO`.
-- **Pines:** el sensor de suelo usa el GPIO34 porque es del ADC1. Los pines del ADC2 no se pueden leer mientras el Wi-Fi está activo. Los relés usan los GPIO 25, 26, 27 y 33, que no interfieren con el arranque de la placa.
-- **Sin `delay()` largos en `loop()`:** la reconexión se intenta cada 5 s comparando `millis()`. Así la placa sigue atendiendo los mensajes mientras tanto.
+  La hora se recupera sola por internet (NTP), o desde el celular en la red de emergencia. Un módulo RTC DS3231 resolvería esto del todo.
 
 ---
 
-## 6. La página del celular (`frontend/`)
+## 4. Dos tareas al mismo tiempo (`firmware/src/main.cpp`)
 
-Es HTML, CSS y JavaScript sin frameworks, para que puedas leerlo de punta a punta. Funciona así:
+El ESP32 corre **FreeRTOS**, un sistema que permite tener varias tareas en paralelo:
 
-- Cada 5 s pide `GET /api/estado` y actualiza las tarjetas y los relés.
-- Cada 60 s pide `GET /api/historico?horas=24` y redibuja los gráficos, uno por unidad (°C, %, kPa, ppm).
-- Los botones llaman a `POST /api/reles/<id>/manual` o `/auto`, y "Guardar regla" llama a `PUT /api/reles/<id>/regla`.
+- **`tareaControl`:** sensores, reglas y relés, cada 1 s.
+- **`loop()`:** todo lo de red (Wi-Fi, MQTT, red de emergencia, página local).
 
-Chart.js está copiado en `frontend/vendor/` para que la página no dependa de un CDN externo.
+¿Por qué separarlas? Conectarse a un servidor con TLS puede **bloquear 10 segundos o más**. Si eso pasara en la misma tarea que el riego, un pulso de 20 s podría durar 35.
 
-👉 FastAPI genera documentación interactiva de la API en `http://servidor:8090/docs`. Desde ahí podés probar cada endpoint sin la web.
+Como las dos tareas tocan los mismos datos (lecturas, estado de los relés), se protegen con un **candado** (`Bloqueo`): mientras una lee o escribe, la otra espera. Sin el candado, una tarea podría leer un dato a medio escribir.
 
 ---
 
-## 7. Seguridad, en resumen
+## 5. La red de emergencia
 
-- **Web:** no tiene login. La protección es que solo se accede por tu red o por Tailscale, que ya autentica cada dispositivo. **No** expongas el 8090 a internet con un port-forward del router.
-- **MQTT:** tiene usuario y clave. Las credenciales salen del `.env`, que no se sube a git.
-- **Postgres:** no es accesible desde fuera de Docker.
+Si pasan 2 minutos sin servidor, el ESP32 pasa a modo **AP+STA**: sigue buscando el Wi-Fi de siempre (STA) y a la vez crea su propia red (AP).
+
+- **DNSServer:** responde cualquier dominio con la IP de la placa. Por eso el celular muestra la página sola, como el Wi-Fi de un hotel (*portal cautivo*).
+- **La página** (`pagina_local.h`) va dentro del firmware como texto. Solo responde a quien está conectado a esa red.
+- **Mientras alguien está conectado, la placa no intenta reconectarse.** Buscar el Wi-Fi obliga a la placa a cambiar de canal, y eso desconectaría al celular.
+- **Mediciones guardadas:** las que no se pudieron enviar quedan en un *buffer circular* de hasta 6 horas y se mandan con su hora real cuando vuelve la conexión. Así el gráfico no queda con huecos.
+
+---
+
+## 6. El servidor (`backend/app/`)
+
+- **`servicio.py`:** escucha a los módulos y guarda lo que mandan. Si una medición llega atrasada (del buffer), se guarda con su hora real y no reemplaza a la última.
+- **`modelos.py`:** valida la configuración **antes** de mandarla (una regla mal escrita nunca llega a la placa). También calcula el "próximo cambio" que ves en el esquema.
+- **`main.py`:** la API. Cada cambio sube la `version` de la config de esa sala. El ESP32 informa qué versión aplicó, y si no coinciden, la web te avisa con "configuración pendiente".
+- **Bitácora:** tabla `bitacora`. La etapa actual es la última entrada de tipo *etapa* según su fecha. Por eso podés cargar "pasé a floración el 26/09" días después y el contador queda bien.
+
+👉 Para ver los mensajes en vivo: `docker compose exec mosquitto mosquitto_sub -u backend -P <clave> -t 'cultivo/#' -v`
+👉 Para ver la API interactiva: `http://servidor:8090/docs`
+
+---
+
+## 7. ¿Y Node-RED?
+
+Node-RED sirve para armar flujos visuales rápido, pero para esto tiene contras:
+
+- la lógica queda en un JSON difícil de versionar y de probar;
+- se ejecuta en el servidor, así que si se corta internet, la sala queda sin control.
+
+Acá cada pieza es código que se lee, se prueba y queda en git, y la lógica crítica vive en la placa.
+
+La alternativa "lista para usar" sería **ESPHome + Home Assistant**. Es excelente, pero con las salas lejos del servidor igual habría que resolver la conexión (MQTT + Funnel), y aprenderías menos de cómo funciona por dentro.
 
 ---
 
 ## 8. Ideas para seguir aprendiendo
 
-1. **Regla combinada:** que el extractor funcione por temperatura *solo con la luz prendida*. Pista: agregar un campo opcional `solo_entre` a `ReglaUmbral` y usar `en_ventana()`. Escribí primero el test.
-2. **Umbral por DPV:** ya podés hacerlo, porque `dpv` es una variable más. Probá una regla `umbral` con `variable: dpv`.
-3. **Alertas:** mandar un mensaje (Telegram, ntfy.sh) si la temperatura pasa de 32 °C o si el ESP32 está `offline` más de 10 minutos.
-4. **ACL en Mosquitto:** que el usuario `esp32` solo pueda publicar en `telemetria` y `estado`, y no en `set`.
-5. **Retención de datos:** borrar o promediar las mediciones de más de un año (con un cron y `DELETE ... WHERE ts < now() - interval '1 year'`).
-6. **OTA:** actualizar el firmware del ESP32 por Wi-Fi sin cable (ArduinoOTA).
+1. **Mejor sensor:** cambiar el DHT11 por un SHT31 o SHT40. Mirá `medir()` en `main.cpp`.
+2. **RTC DS3231:** que el módulo no pierda la hora al reiniciarse sin internet.
+3. **Alertas:** un mensaje (Telegram o ntfy.sh) si una sala pasa 10 minutos `offline` o la temperatura supera 32 °C. Encaja en `servicio.py`.
+4. **Regla combinada:** deshumidificador solo con la luz apagada. Primero el test en `test_reglas`, después el código.
+5. **Actualizar el firmware por internet (OTA):** para no tener que viajar con la notebook cada vez.

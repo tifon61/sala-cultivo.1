@@ -1,95 +1,61 @@
-# Sala de cultivo
+# Salas de cultivo
 
-Este sistema administra una sala de cultivo con un ESP32. Registra las mediciones de los sensores, muestra gráficos y controla los relés (luz, extractor, humidificador y riego) en modo automático o manual desde el celular, por Tailscale.
+Este sistema administra **dos salas de cultivo**. Cada sala tiene un módulo ESP32 con un DHT11, un SCD40 y 4 relés. Las salas están en un lugar distinto del servidor, y todo se maneja desde el celular o la notebook estés donde estés.
 
-Corre en un Docker Compose propio, separado del sistema meteorológico, y no usa los puertos 8080, 8081 ni 5432.
+- **Esquema de las dos salas:** variables, equipos prendidos o apagados, cuándo cambia la luz y cuánto falta para el próximo riego.
+- **Reglas automáticas** que corre cada ESP32, **aunque se corte internet**:
+  - riego por pulsos de tiempo;
+  - humidificador y deshumidificador por DPV;
+  - luz por horario.
+- **Control manual**, sin límite o por un tiempo.
+- **Bitácora** de cada sala: cambios de etapa (con día y semana de floración o vegetativo), riegos con nutrientes, podas, cosecha…
+- **Red de emergencia:** si el módulo pierde contacto con el servidor, crea su propio Wi-Fi para configurarlo en el lugar.
+- **Gráficos históricos** de cada sala.
 
 ```
- ESP32 (Wi-Fi de casa)                     Servidor Ubuntu (Docker Compose "sala-cultivo")
- ┌──────────────────┐   MQTT :1883    ┌───────────┐      ┌─────────────────────────────┐
- │ SHT31  SCD40     │ ──telemetría──► │ mosquitto │ ◄──► │ backend (FastAPI)           │
- │ suelo  4 relés   │ ◄──órdenes───── │ (broker)  │      │  · guarda mediciones        │
- └──────────────────┘                 └───────────┘      │  · decide relés cada 10 s   │
-                                                         │  · API + página web :8090   │
- Celular ──Tailscale──► http://servidor:8090 ──────────► └──────────────┬──────────────┘
-                                                                        │ red interna
-                                                                  ┌─────▼─────┐
-                                                                  │ postgres  │ (sin puerto expuesto)
-                                                                  └───────────┘
+  CASA (servidor Ubuntu)                                LUGAR DE LAS SALAS
+ ┌──────────────────────────────────────┐              ┌──────────────────────┐
+ │ docker compose "sala-cultivo"        │   internet   │ ESP32 sala1  ESP32 sala2
+ │  mosquitto :1883 ◄── Tailscale Funnel│◄─MQTT+TLS───│ DHT11, SCD40, 4 relés │
+ │  backend   :8090 (web + API)         │   :8443      │ (si se corta: red     │
+ │  postgres  (interno)                 │              │  "Cultivo-salaN")     │
+ └──────────────▲───────────────────────┘              └──────────────────────┘
+                │ Tailscale (privado)
+        celular / notebook, desde cualquier lugar
 ```
 
-📚 **Para entender cómo funciona cada parte, leé [`docs/COMO_FUNCIONA.md`](docs/COMO_FUNCIONA.md).**
+- 🛠️ **Instalación paso a paso** (todo se puede hacer remoto por SSH): [`docs/INSTALACION.md`](docs/INSTALACION.md)
+- 📚 **Cómo funciona cada parte, para aprender:** [`docs/COMO_FUNCIONA.md`](docs/COMO_FUNCIONA.md)
 
 ## Estructura
 
 | Carpeta | Qué hay |
 |---|---|
-| `docker-compose.yml`, `.env.example` | Los 3 servicios y su configuración |
-| `mosquitto/` | Configuración del broker MQTT |
-| `backend/app/` | API, conexión MQTT, base de datos y motor de automatización |
-| `backend/tests/` | Pruebas del motor de automatización |
-| `frontend/` | La página que se abre en el celular |
-| `config/sala.yaml` | Relés y reglas iniciales |
-| `firmware/` | Programa del ESP32 (PlatformIO) |
-| `index.html` (raíz) | El dashboard anterior, que lee de ThingSpeak. No se tocó. |
+| `docker-compose.yml`, `.env.example` | Los 3 servicios del servidor y sus claves |
+| `mosquitto/` | Broker MQTT: usuarios y permisos (ACL) |
+| `backend/app/` | API, conexión con los módulos, base de datos, validación de reglas |
+| `frontend/` | La página (esquema, equipos, gráficos, bitácora) |
+| `config/salas.yaml` | Salas, relés y reglas iniciales |
+| `firmware/` | Programa de los ESP32 (PlatformIO), con sus pruebas |
+| `index.html` (raíz) | El dashboard viejo de ThingSpeak. No se tocó. |
 
-## Hardware supuesto (ajustalo a lo tuyo)
+## Hardware de cada módulo
 
-| Qué | Modelo supuesto | Dónde se cambia |
+| Qué | Pin | Notas |
 |---|---|---|
-| Placa | ESP32 DevKit (esp32dev) | `firmware/platformio.ini` |
-| Temperatura y humedad | SHT31 (I2C, 0x44) | `firmware/include/config.h` |
-| CO₂ + temp. 2 + hum. 2 | SCD40/SCD41 (I2C, 0x62) | ídem |
-| Humedad de suelo | Sensor capacitivo v1.2 en GPIO34 | ídem (incluye calibración) |
-| Relés | Módulo de 4 canales de lógica inversa: luz GPIO26, extractor 27, humidificador 25, riego 33 | `config.h` + `config/sala.yaml` |
+| ESP32 DevKit | — | |
+| DHT11 (temperatura y humedad) | GPIO4 | Con una resistencia de 10 kΩ entre DATA y 3V3 si el módulo no la trae |
+| SCD40 (CO₂, más temperatura y humedad) | SDA 21, SCL 22 | Alimentado con 3V3 |
+| Relé 1: bomba de riego | GPIO26 | |
+| Relé 2: humidificador | GPIO27 | |
+| Relé 3: deshumidificador | GPIO25 | |
+| Relé 4: luz | GPIO33 | Si el cuarto relé es otra cosa, se cambia en `config.h` y `salas.yaml` |
 
-Las variables (`temperatura`, `humedad`, `co2`, `temperatura2`, `humedad2`) siguen el mismo esquema que tu canal de ThingSpeak actual. Si no tenés algún sensor, comentá su `#define USAR_...` en `config.h`.
-
-## Puesta en marcha en el servidor
-
-```bash
-git clone <este repo> ~/sala-cultivo && cd ~/sala-cultivo
-cp .env.example .env
-nano .env                      # cambiá TODAS las claves y la zona horaria
-docker compose up -d --build
-docker compose logs -f backend # deberías ver "Conectado al broker MQTT"
-```
-
-- **Desde el celular:** `http://<nombre-del-servidor-en-tailscale>:8090` (o `http://100.x.y.z:8090`).
-- **Para que solo se vea por Tailscale:** en `.env` poné `WEB_BIND=<IP 100.x de Tailscale>`. Tailscale tiene que estar levantado antes que Docker al arrancar; si no lo está, el contenedor no puede escuchar en esa IP.
-- **Firewall:** si usás `ufw`, abrí el 1883 solo para la red local, por ejemplo `sudo ufw allow from 192.168.1.0/24 to any port 1883`. Ojo: Docker publica sus puertos por fuera de `ufw`, así que conviene igual tener el broker con usuario y clave (ya viene así).
-
-## Firmware del ESP32
-
-```bash
-cd firmware
-cp include/config.example.h include/config.h
-nano include/config.h          # Wi-Fi, IP LOCAL del servidor, clave MQTT del ESP32, pines
-pio run -t upload && pio device monitor
-```
-
-En el monitor serie tenés que ver `MQTT conectado` y cada 30 s el JSON con las mediciones.
-
-## Probar sin el ESP32
-
-Podés simular la placa publicando a mano:
-
-```bash
-docker compose exec mosquitto mosquitto_pub -u esp32 -P <clave> \
-  -t cultivo/sala1/telemetria -m '{"temperatura":29.5,"humedad":50}'
-docker compose exec mosquitto mosquitto_sub -u esp32 -P <clave> -t 'cultivo/sala1/#' -v
-```
+> ⚠️ **Sobre el DHT11:** mide la temperatura con ±2 °C de error y la humedad con ±5 %, en números enteros. Para controlar el DPV es poco preciso. Si el DHT11 falla, el módulo calcula el DPV con el SCD40. Un SHT31 o SHT40 cuesta poco más y es mucho mejor; cambiarlo es un ajuste chico en el firmware.
 
 ## Pruebas
 
 ```bash
-cd backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
-.venv/bin/pytest
-```
-
-## Respaldo
-
-```bash
-docker compose exec db pg_dump -U cultivo cultivo | gzip > respaldo-$(date +%F).sql.gz
+cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest && .venv/bin/pytest
+cd firmware && pio test -e native        # motor de reglas del ESP32, corre en la PC
 ```

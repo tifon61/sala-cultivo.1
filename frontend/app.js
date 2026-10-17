@@ -1,27 +1,33 @@
 // Página del celular. Pide datos a la API del backend (mismo servidor) y los dibuja.
-//   GET  /api/estado      -> lecturas actuales + relés     (cada 5 s)
-//   GET  /api/historico   -> series para los gráficos     (cada 60 s)
-//   POST /api/reles/...   -> control manual / automático
+//   GET  /api/salas                      -> todas las salas: lecturas, equipos, etapa (cada 5 s)
+//   GET  /api/salas/<id>/historico       -> series para los gráficos (cada 60 s)
+//   GET  /api/salas/<id>/bitacora        -> registro de la sala
+//   POST /api/salas/<id>/reles/<rele>/…  -> control manual / automático / reglas
 
-// Nombre y unidad de cada variable que manda el ESP32. Las que no estén acá
-// se muestran igual, con su nombre crudo.
 const VARIABLES = {
-  temperatura:  { nombre: 'Temperatura',   unidad: '°C',  dec: 1 },
-  humedad:      { nombre: 'Humedad',       unidad: '%',   dec: 0 },
-  dpv:          { nombre: 'DPV',           unidad: 'kPa', dec: 2 },
-  co2:          { nombre: 'CO₂',           unidad: 'ppm', dec: 0 },
-  temperatura2: { nombre: 'Temp. sensor 2', unidad: '°C', dec: 1 },
-  humedad2:     { nombre: 'Hum. sensor 2', unidad: '%',   dec: 0 },
-  suelo1:       { nombre: 'Suelo 1',       unidad: '% suelo', dec: 0 },
-  suelo2:       { nombre: 'Suelo 2',       unidad: '% suelo', dec: 0 },
-  rssi:         { nombre: 'Señal Wi-Fi',   unidad: 'dBm', dec: 0 },
+  temperatura:  { nombre: 'Temp',      unidad: '°C',  dec: 1 },
+  humedad:      { nombre: 'Humedad',   unidad: '%',   dec: 0 },
+  dpv:          { nombre: 'DPV',       unidad: 'kPa', dec: 2 },
+  co2:          { nombre: 'CO₂',       unidad: 'ppm', dec: 0 },
+  temperatura2: { nombre: 'Temp SCD40', unidad: '°C', dec: 1 },
+  humedad2:     { nombre: 'Hum SCD40', unidad: '%',   dec: 0 },
+  rssi:         { nombre: 'Wi-Fi',     unidad: 'dBm', dec: 0 },
 };
+const EN_PLANO = ['temperatura', 'humedad', 'dpv', 'co2'];
+const ICONOS = { luz: '💡', riego: '💧', humidificador: '💨', deshumidificador: '🌀', extractor: '🌬️' };
+const ETAPAS = { germinacion: 'Germinación', plantines: 'Plantines', vegetativo: 'Vegetativo', floracion: 'Floración',
+                 secado: 'Secado', curado: 'Curado', vacia: 'Vacía' };
+const TIPOS = { etapa: 'Etapa', nota: 'Nota', riego_nutrientes: 'Riego con nutrientes', poda: 'Poda',
+                trasplante: 'Trasplante', plaga: 'Plaga', cosecha: 'Cosecha', mantenimiento: 'Mantenimiento' };
 const COLORES = ['#10b981', '#38bdf8', '#f59e0b', '#a78bfa', '#f472b6', '#94a3b8'];
-const DATO_VIEJO_MS = 3 * 60 * 1000;
 
 const info = v => VARIABLES[v] || { nombre: v, unidad: '', dec: 2 };
 const $ = sel => document.querySelector(sel);
-let ultimoEstado = null;
+const hora = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const fechaCorta = ts => new Date(ts).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+let datos = null;          // última respuesta de /api/salas
+let elegida = localStorage.getItem('sala') || null;
 
 async function api(metodo, ruta, cuerpo) {
   const res = await fetch(ruta, {
@@ -29,90 +35,180 @@ async function api(metodo, ruta, cuerpo) {
     headers: cuerpo ? { 'Content-Type': 'application/json' } : {},
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   });
-  const datos = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(typeof datos.detail === 'string' ? datos.detail : JSON.stringify(datos.detail));
-  return datos;
-}
-
-function hora(ts) {
-  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-// ------------------------------------------------------------------ estado
-
-async function actualizarEstado() {
-  try {
-    ultimoEstado = await api('GET', '/api/estado');
-    pintarConexion(ultimoEstado);
-    pintarLecturas(ultimoEstado.lecturas);
-    pintarReles(ultimoEstado.reles);
-  } catch (e) {
-    pintarConexion(null);
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detalle = Array.isArray(r.detail) ? r.detail.map(d => d.msg.replace('Value error, ', '')).join('; ') : r.detail;
+    throw new Error(detalle || `error ${res.status}`);
   }
+  return r;
 }
 
-function pintarConexion(estado) {
-  const caja = $('#conexion');
-  let texto, ok;
-  if (!estado) { texto = 'sin conexión al servidor'; ok = false; }
-  else if (!estado.mqtt_conectado) { texto = 'servidor sin broker MQTT'; ok = false; }
-  else if (!estado.online) { texto = 'ESP32 desconectado'; ok = false; }
-  else { texto = estado.ultimo_dato ? `ESP32 · ${hora(estado.ultimo_dato)}` : 'ESP32 conectado'; ok = true; }
-  caja.className = 'conexion ' + (ok ? 'ok' : 'mal');
+function sala() { return datos?.salas.find(s => s.id === elegida); }
+
+// "en 3 h 12 min" a partir de una fecha futura
+function cuentaRegresiva(cuando) {
+  const s = Math.max(0, Math.round((new Date(cuando) - Date.now()) / 1000));
+  if (s < 60) return `en ${s} s`;
+  const min = Math.round(s / 60);
+  if (min < 60) return `en ${min} min`;
+  return `en ${Math.floor(min / 60)} h ${min % 60} min`;
+}
+
+function textoEtapa(s) {
+  if (!s.etapa) return 'sin etapa';
+  const semana = Math.ceil(s.dia_etapa / 7);
+  return `${ETAPAS[s.etapa] || s.etapa} · día ${s.dia_etapa} (sem ${semana})`;
+}
+
+// ----------------------------------------------------------------- refresco
+
+async function actualizar() {
+  try {
+    datos = await api('GET', '/api/salas');
+  } catch {
+    pintarConexion(false, 'sin conexión al servidor');
+    return;
+  }
+  if (!sala()) elegirSala(datos.salas[0]?.id, false);
+  pintarConexion(datos.mqtt_conectado, datos.mqtt_conectado ? 'servidor ok' : 'servidor sin broker MQTT');
+  pintarPlano();
+  pintarPestanas();
+  pintarDetalle();
+}
+
+function pintarConexion(ok, texto) {
+  $('#conexion').className = 'conexion ' + (ok ? 'ok' : 'mal');
   $('#conexion-texto').textContent = texto;
 }
 
-function pintarLecturas(lecturas) {
-  const cont = $('#lecturas');
-  cont.replaceChildren();
-  const vars = Object.keys(lecturas);
-  if (!vars.length) {
-    cont.innerHTML = '<p class="vacio">Todavía no llegó ninguna medición del ESP32.</p>';
-    return;
+// ------------------------------------------------------------------ esquema
+
+function pintarPlano() {
+  const plano = $('#plano');
+  plano.replaceChildren(...datos.salas.map(s => {
+    const caja = document.createElement('div');
+    caja.className = 'sala-plano' + (s.id === elegida ? ' elegida' : '');
+    caja.onclick = () => elegirSala(s.id);
+
+    const titulo = document.createElement('div');
+    titulo.className = 'titulo';
+    titulo.innerHTML = `<span class="punto ${s.online ? 'ok' : 'mal'}"></span><span></span>`;
+    titulo.lastChild.textContent = s.nombre;
+    const etapa = document.createElement('span');
+    etapa.className = 'etapa ' + (s.etapa || '');
+    etapa.textContent = textoEtapa(s);
+
+    const vars = document.createElement('div');
+    vars.className = 'variables';
+    for (const v of EN_PLANO) {
+      const l = s.lecturas[v];
+      const d = document.createElement('div');
+      d.className = 'variable' + (!l || l.viejo ? ' vieja' : '');
+      d.innerHTML = '<small></small><b></b><span class="unidad"></span>';
+      d.children[0].textContent = info(v).nombre;
+      d.children[1].textContent = l ? l.valor.toFixed(info(v).dec) : '—';
+      d.children[2].textContent = l ? info(v).unidad : '';
+      vars.append(d);
+    }
+
+    const equipos = document.createElement('div');
+    equipos.className = 'equipos';
+    const proximos = document.createElement('ul');
+    proximos.className = 'proximos';
+    for (const r of s.reles) {
+      const e = document.createElement('div');
+      e.className = 'equipo' + (r.on ? ' on' : '');
+      e.title = r.motivo;
+      e.innerHTML = '<span class="icono"></span><span class="nombre-eq"></span>';
+      e.firstChild.textContent = ICONOS[r.id] || '⚙️';
+      e.lastChild.textContent = `${r.nombre}${r.manual_vigente ? ' ✋' : ''}`;
+      equipos.append(e);
+      if (r.proximo) {
+        const li = document.createElement('li');
+        li.innerHTML = '<span></span> <span></span> · <b data-cuando></b>';
+        li.children[0].textContent = ICONOS[r.id] || '⚙️';
+        li.children[1].textContent = r.proximo.texto;
+        li.children[2].dataset.cuando = r.proximo.cuando;
+        li.children[2].textContent = cuentaRegresiva(r.proximo.cuando);
+        proximos.append(li);
+      }
+    }
+    caja.append(titulo, etapa, vars, equipos, proximos);
+    return caja;
+  }));
+}
+
+// Las cuentas regresivas se actualizan cada segundo sin pedir nada al servidor.
+setInterval(() => {
+  document.querySelectorAll('[data-cuando]').forEach(el => { el.textContent = cuentaRegresiva(el.dataset.cuando); });
+}, 1000);
+
+// ------------------------------------------------------------ sala elegida
+
+function elegirSala(id, recargar = true) {
+  if (!id) return;
+  if (id !== elegida) {
+    elegida = id;
+    try { localStorage.setItem('sala', id); } catch {}
+    $('#reles').replaceChildren();
+    Object.keys(tarjetas).forEach(k => delete tarjetas[k]);
   }
-  for (const v of vars) {
-    const { valor, ts } = lecturas[v];
-    const i = info(v);
-    const tarjeta = document.createElement('div');
-    tarjeta.className = 'lectura' + (Date.now() - new Date(ts) > DATO_VIEJO_MS ? ' vieja' : '');
-    tarjeta.title = `Última lectura: ${new Date(ts).toLocaleString()}`;
-    tarjeta.innerHTML = '<div class="nombre"></div><div><span class="valor"></span><span class="unidad"></span></div>';
-    tarjeta.querySelector('.nombre').textContent = i.nombre;
-    tarjeta.querySelector('.valor').textContent = valor.toFixed(i.dec);
-    tarjeta.querySelector('.unidad').textContent = i.unidad;
-    cont.append(tarjeta);
+  if (recargar && datos) {
+    pintarPlano(); pintarPestanas(); pintarDetalle();
+    actualizarHistorico(); actualizarBitacora();
   }
 }
 
-// ------------------------------------------------------------------ relés
+function pintarPestanas() {
+  $('#pestanas').replaceChildren(...datos.salas.map(s => {
+    const b = document.createElement('button');
+    b.textContent = s.nombre;
+    b.className = s.id === elegida ? 'activo' : '';
+    b.onclick = () => elegirSala(s.id);
+    return b;
+  }));
+}
+
+function pintarDetalle() {
+  const s = sala();
+  if (!s) return;
+  const m = s.modulo;
+  const partes = [s.online ? `Módulo conectado · último dato ${s.ultimo_dato ? hora(s.ultimo_dato) : '—'}` : 'Módulo DESCONECTADO (sigue funcionando solo con su última configuración)'];
+  if (m.version_aplicada != null && m.version_aplicada !== m.version_servidor) partes.push('<span class="alerta">configuración pendiente de llegar al módulo</span>');
+  if (m.config_local) partes.push('<span class="alerta">cambiada desde la red local del módulo</span>');
+  if (m.modo_ap) partes.push('<span class="alerta">red de emergencia activa</span>');
+  if (m.hay_hora === false) partes.push('<span class="alerta">el módulo no tiene hora</span>');
+  if (m.pendientes) partes.push(`${m.pendientes} mediciones guardadas por enviar`);
+  if (m.error) partes.push(`<span class="alerta">error: ${m.error.replace(/</g, '&lt;')}</span>`);
+  $('#modulo').innerHTML = partes.join(' · ');
+  pintarReles(s);
+}
+
+// ------------------------------------------------------------------ equipos
 // Cada tarjeta se crea una sola vez; después solo se actualizan sus textos,
 // así no se cierra el formulario de la regla mientras lo estás editando.
 
 const tarjetas = {};
 
-function pintarReles(reles) {
-  const cont = $('#reles');
-  for (const r of reles) {
+function pintarReles(s) {
+  for (const r of s.reles) {
     if (!tarjetas[r.id]) {
-      tarjetas[r.id] = crearTarjetaRele(r);
-      cont.append(tarjetas[r.id]);
+      tarjetas[r.id] = crearTarjetaRele(s.id, r);
+      $('#reles').append(tarjetas[r.id]);
     }
     const t = tarjetas[r.id];
-    t.querySelector('.rele-nombre').textContent = r.nombre;
+    t.querySelector('.rele-nombre').textContent = `${ICONOS[r.id] || '⚙️'} ${r.nombre}`;
     t.querySelector('.rele-motivo').textContent = r.motivo;
     const pastilla = t.querySelector('.pastilla');
-    pastilla.textContent = r.encendido == null ? '—' : (r.encendido ? 'ENCENDIDO' : 'APAGADO');
-    pastilla.classList.toggle('on', !!r.encendido);
-    t.querySelector('.rele-aviso').hidden = r.encendido == null || r.reportado === r.encendido;
-
-    const manual = r.modo === 'manual';
-    t.querySelector('[data-accion=auto]').classList.toggle('activo', !manual);
-    t.querySelector('[data-accion=on]').classList.toggle('activo', manual && r.manual_estado);
-    t.querySelector('[data-accion=off]').classList.toggle('activo', manual && !r.manual_estado);
+    pastilla.textContent = r.on == null ? '—' : (r.on ? 'ENCENDIDO' : 'APAGADO');
+    pastilla.classList.toggle('on', !!r.on);
+    t.querySelector('[data-accion=auto]').classList.toggle('activo', !r.manual_vigente);
+    t.querySelector('[data-accion=on]').classList.toggle('activo', r.manual_vigente && r.manual_estado);
+    t.querySelector('[data-accion=off]').classList.toggle('activo', r.manual_vigente && !r.manual_estado);
   }
 }
 
-function crearTarjetaRele(rele) {
+function crearTarjetaRele(sid, rele) {
   const t = $('#tpl-rele').content.firstElementChild.cloneNode(true);
   t.querySelectorAll('[data-accion]').forEach(boton => {
     boton.addEventListener('click', async () => {
@@ -120,17 +216,17 @@ function crearTarjetaRele(rele) {
       const minutos = parseInt(t.querySelector('.duracion').value) || null;
       boton.disabled = true;
       try {
-        if (accion === 'auto') await api('POST', `/api/reles/${rele.id}/auto`);
-        else await api('POST', `/api/reles/${rele.id}/manual`, { encendido: accion === 'on', minutos });
-        await actualizarEstado();
+        if (accion === 'auto') await api('POST', `/api/salas/${sid}/reles/${rele.id}/auto`);
+        else await api('POST', `/api/salas/${sid}/reles/${rele.id}/manual`, { encendido: accion === 'on', minutos });
+        await actualizar();
       } catch (e) {
-        alert('No se pudo cambiar el relé: ' + e.message);
+        alert('No se pudo cambiar: ' + e.message);
       } finally {
         boton.disabled = false;
       }
     });
   });
-  armarFormularioRegla(t.querySelector('.form-regla'), rele.id, rele.regla);
+  armarFormularioRegla(t.querySelector('.form-regla'), sid, rele.id, rele.regla);
   return t;
 }
 
@@ -143,28 +239,32 @@ const CAMPOS = {
     ['valor', 'Umbral', 'number'],
     ['histeresis', 'Histéresis', 'number'],
   ],
-  ciclo: [
-    ['inicio', 'Primer encendido', 'time'],
-    ['cada_min', 'Cada (min)', 'number'],
-    ['duracion_min', 'Durante (min)', 'number'],
-    ['repeticiones', 'Veces por día (vacío = todo el día)', 'number'],
+  pulsos: [
+    ['encendido_s', 'Segundos encendido', 'number'],
+    ['cada_min', 'Cada (minutos)', 'number'],
+    ['desde', 'Desde (opcional)', 'time'],
+    ['hasta', 'Hasta (opcional)', 'time'],
   ],
 };
+const AYUDA = {
+  horario: 'Puede cruzar la medianoche (ej. 18:00 a 06:00).',
+  umbral: 'DPV alto = aire seco → humidificador "mayor". DPV bajo = aire húmedo → deshumidificador "menor".',
+  pulsos: 'Los pulsos se cuentan desde la hora "desde". Sin ventana, todo el día desde las 00:00.',
+};
 
-function armarFormularioRegla(form, rid, regla) {
+function armarFormularioRegla(form, sid, rid, regla) {
   form.replaceChildren();
   const tipo = crearCampo(form, 'Tipo', 'select', 'ancho');
-  for (const [valor, texto] of [['horario', 'Horario'], ['umbral', 'Umbral (sensor)'], ['ciclo', 'Ciclo']]) {
+  for (const [valor, texto] of [['horario', 'Horario'], ['umbral', 'Umbral (sensor)'], ['pulsos', 'Pulsos de tiempo']]) {
     tipo.add(new Option(texto, valor, false, valor === regla.tipo));
   }
-  tipo.addEventListener('change', () => armarFormularioRegla(form, rid, { tipo: tipo.value }));
+  tipo.addEventListener('change', () => armarFormularioRegla(form, sid, rid, { tipo: tipo.value }));
 
   for (const [clave, etiqueta, clase] of CAMPOS[regla.tipo]) {
     let input;
     if (clase === 'variable') {
       input = crearCampo(form, etiqueta, 'select');
-      const vars = new Set([...Object.keys(ultimoEstado?.lecturas || {}), regla.variable].filter(Boolean));
-      vars.forEach(v => input.add(new Option(info(v).nombre, v)));
+      for (const v of ['dpv', 'temperatura', 'humedad', 'co2', 'temperatura2', 'humedad2']) input.add(new Option(info(v).nombre, v));
     } else if (clase === 'comparacion') {
       input = crearCampo(form, etiqueta, 'select');
       input.add(new Option('mayor al umbral', 'mayor'));
@@ -175,17 +275,18 @@ function armarFormularioRegla(form, rid, regla) {
       if (clase === 'number') input.step = 'any';
     }
     input.name = clave;
-    const actual = regla[clave];
-    if (actual != null) input.value = clase === 'time' ? String(actual).slice(0, 5) : actual;
+    if (regla[clave] != null) input.value = regla[clave];
   }
 
+  const ayuda = document.createElement('p');
+  ayuda.className = 'ayuda ancho';
+  ayuda.textContent = AYUDA[regla.tipo];
   const error = document.createElement('p');
-  error.className = 'error';
+  error.className = 'error ancho';
   const guardar = document.createElement('button');
-  guardar.type = 'submit';
   guardar.className = 'ancho';
   guardar.textContent = 'Guardar regla';
-  form.append(error, guardar);
+  form.append(ayuda, error, guardar);
 
   form.onsubmit = async ev => {
     ev.preventDefault();
@@ -196,11 +297,10 @@ function armarFormularioRegla(form, rid, regla) {
       nueva[clave] = clase === 'number' ? Number(valor) : valor;
     }
     try {
-      const r = await api('PUT', `/api/reles/${rid}/regla`, nueva);
+      await api('PUT', `/api/salas/${sid}/reles/${rid}/regla`, nueva);
       error.textContent = '';
-      armarFormularioRegla(form, rid, r.regla);
       form.closest('details').open = false;
-      await actualizarEstado();
+      await actualizar();
     } catch (e) {
       error.textContent = 'Regla inválida: ' + e.message;
     }
@@ -217,37 +317,36 @@ function crearCampo(form, etiqueta, etiquetaHtml, clase) {
   return input;
 }
 
-// ------------------------------------------------------------------ gráficos
+// ----------------------------------------------------------------- gráficos
 // Un gráfico por unidad (°C, %, kPa, ppm...), así las escalas tienen sentido.
 
 const graficos = {};
 
 async function actualizarHistorico() {
+  if (!elegida) return;
   const horas = $('#periodo').value;
-  let datos;
-  try { datos = await api('GET', `/api/historico?horas=${horas}`); } catch { return; }
+  let h;
+  try { h = await api('GET', `/api/salas/${elegida}/historico?horas=${horas}`); } catch { return; }
 
   const porUnidad = {};
-  for (const [variable, puntos] of Object.entries(datos.series)) {
+  for (const [variable, puntos] of Object.entries(h.series)) {
+    if (variable === 'rssi') continue;
     (porUnidad[info(variable).unidad] ||= []).push([variable, puntos]);
   }
-
   const cont = $('#graficos');
   for (const unidad of Object.keys(graficos)) {
     if (!porUnidad[unidad]) { graficos[unidad].destroy(); graficos[unidad].canvas.parentElement.remove(); delete graficos[unidad]; }
   }
-  if (!Object.keys(porUnidad).length) cont.innerHTML = '<p class="vacio">Sin datos en este período.</p>';
-  else cont.querySelector('.vacio')?.remove();
+  cont.querySelector('.vacio')?.remove();
+  if (!Object.keys(porUnidad).length) cont.insertAdjacentHTML('beforeend', '<p class="vacio">Sin datos en este período.</p>');
 
   const conFecha = Number(horas) > 24;
-  // Todos los gráficos muestran el período completo, aunque haya pocos datos.
-  const ejeX = { min: new Date(datos.desde).getTime(), max: new Date(datos.hasta).getTime() };
+  const ejeX = { min: new Date(h.desde).getTime(), max: new Date(h.hasta).getTime() };
   for (const [unidad, series] of Object.entries(porUnidad)) {
     const datasets = series.map(([variable, puntos], i) => ({
       label: info(variable).nombre,
       data: puntos.map(([t, v]) => ({ x: new Date(t).getTime(), y: v })),
-      borderColor: COLORES[i % COLORES.length],
-      backgroundColor: COLORES[i % COLORES.length],
+      borderColor: COLORES[i % COLORES.length], backgroundColor: COLORES[i % COLORES.length],
       borderWidth: 2, pointRadius: 0, tension: 0.25,
     }));
     if (graficos[unidad]) {
@@ -279,14 +378,11 @@ async function actualizarHistorico() {
       },
     });
   }
-  pintarEventos(datos.eventos);
+  pintarEventos(h.eventos);
 }
 
 function etiquetaTiempo(conFecha) {
-  return valor => {
-    const d = new Date(valor);
-    return conFecha ? d.toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : hora(d);
-  };
+  return valor => conFecha ? new Date(valor).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : hora(valor);
 }
 
 function pintarEventos(eventos) {
@@ -296,18 +392,64 @@ function pintarEventos(eventos) {
   for (const e of eventos.slice(0, 30)) {
     const li = document.createElement('li');
     li.innerHTML = '<span></span> · <b></b> → <b></b> <span></span>';
-    const [cuando, rele, estado, motivo] = li.children;
-    cuando.textContent = new Date(e.ts).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    rele.textContent = e.rele;
-    estado.textContent = e.estado ? 'ON' : 'OFF';
-    motivo.textContent = `(${e.motivo})`;
+    li.children[0].textContent = fechaCorta(e.ts);
+    li.children[1].textContent = e.rele;
+    li.children[2].textContent = e.estado ? 'ON' : 'OFF';
+    li.children[3].textContent = `(${e.motivo})`;
     lista.append(li);
   }
 }
 
+// ----------------------------------------------------------------- bitácora
+
+async function actualizarBitacora() {
+  if (!elegida) return;
+  let entradas;
+  try { entradas = await api('GET', `/api/salas/${elegida}/bitacora`); } catch { return; }
+  const lista = $('#bitacora');
+  lista.replaceChildren();
+  if (!entradas.length) { lista.innerHTML = '<li>Todavía no hay registros.</li>'; return; }
+  for (const e of entradas) {
+    const li = document.createElement('li');
+    li.innerHTML = '<div><span></span> · <b></b> <span></span></div><button title="Borrar">✕</button>';
+    li.querySelector('span').textContent = fechaCorta(e.fecha);
+    li.querySelector('b').textContent = e.tipo === 'etapa' ? `→ ${ETAPAS[e.etapa] || e.etapa}` : TIPOS[e.tipo] || e.tipo;
+    li.querySelectorAll('span')[1].textContent = e.texto;
+    li.querySelector('button').onclick = async () => {
+      if (!confirm('¿Borrar esta entrada de la bitácora?')) return;
+      await api('DELETE', `/api/salas/${elegida}/bitacora/${e.id}`);
+      await actualizarBitacora();
+      await actualizar();
+    };
+    lista.append(li);
+  }
+}
+
+const formBitacora = $('#form-bitacora');
+const mostrarEtapa = () => { formBitacora.querySelector('.campo-etapa').hidden = formBitacora.tipo.value !== 'etapa'; };
+formBitacora.tipo.addEventListener('change', mostrarEtapa);
+mostrarEtapa();
+formBitacora.onsubmit = async ev => {
+  ev.preventDefault();
+  const f = formBitacora;
+  const entrada = { tipo: f.tipo.value, texto: f.texto.value };
+  if (entrada.tipo === 'etapa') entrada.etapa = f.etapa.value;
+  if (f.fecha.value) entrada.fecha = new Date(f.fecha.value).toISOString();
+  try {
+    await api('POST', `/api/salas/${elegida}/bitacora`, entrada);
+    f.texto.value = '';
+    f.fecha.value = '';
+    $('#error-bitacora').textContent = '';
+    await actualizarBitacora();
+    await actualizar();
+  } catch (e) {
+    $('#error-bitacora').textContent = e.message;
+  }
+};
+
 // ------------------------------------------------------------------ arranque
 
 $('#periodo').addEventListener('change', actualizarHistorico);
-actualizarEstado().then(actualizarHistorico);
-setInterval(actualizarEstado, 5000);
+actualizar().then(() => { actualizarHistorico(); actualizarBitacora(); });
+setInterval(actualizar, 5000);
 setInterval(actualizarHistorico, 60000);

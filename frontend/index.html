@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#020617">
-  <title>Sala de cultivo</title>
+  <title>Salas de cultivo</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="estilos.css">
   <!-- Chart.js 4.4.1 copiado al repo: la página no depende de internet ni de un CDN. -->
@@ -12,20 +12,23 @@
 </head>
 <body>
   <header>
-    <h1>Sala <span>de cultivo</span></h1>
+    <h1>Salas <span>de cultivo</span></h1>
     <div id="conexion" class="conexion">
       <span class="punto"></span><span id="conexion-texto">conectando…</span>
     </div>
   </header>
 
   <main>
+    <!-- Esquema: un rectángulo por sala, pegados como en un plano. -->
     <section>
-      <h2>Ahora</h2>
-      <div id="lecturas" class="grilla-lecturas"></div>
+      <div id="plano" class="plano"></div>
     </section>
 
+    <nav id="pestanas" class="pestanas"></nav>
+
     <section>
-      <h2>Relés</h2>
+      <div id="modulo" class="modulo"></div>
+      <h2>Equipos</h2>
       <div id="reles" class="lista-reles"></div>
     </section>
 
@@ -43,13 +46,47 @@
     </section>
 
     <section>
-      <h2>Últimos cambios de relés</h2>
+      <h2>Bitácora</h2>
+      <form id="form-bitacora" class="form-bitacora tarjeta">
+        <label>Qué pasó
+          <select name="tipo">
+            <option value="etapa">Cambio de etapa</option>
+            <option value="nota">Nota</option>
+            <option value="riego_nutrientes">Riego con nutrientes</option>
+            <option value="poda">Poda / defoliación</option>
+            <option value="trasplante">Trasplante</option>
+            <option value="plaga">Plaga / problema</option>
+            <option value="cosecha">Cosecha</option>
+            <option value="mantenimiento">Mantenimiento</option>
+          </select>
+        </label>
+        <label class="campo-etapa">Nueva etapa
+          <select name="etapa">
+            <option value="germinacion">Germinación</option>
+            <option value="plantines">Plantines / esquejes</option>
+            <option value="vegetativo">Vegetativo</option>
+            <option value="floracion" selected>Floración</option>
+            <option value="secado">Secado</option>
+            <option value="curado">Curado</option>
+            <option value="vacia">Sala vacía</option>
+          </select>
+        </label>
+        <label>Cuándo<input type="datetime-local" name="fecha"></label>
+        <label class="ancho">Detalle<textarea name="texto" rows="2" placeholder="EC 1.8, pH 6.2, 2 L por maceta…"></textarea></label>
+        <p class="error ancho" id="error-bitacora"></p>
+        <button class="ancho">Agregar a la bitácora</button>
+      </form>
+      <ul id="bitacora" class="bitacora"></ul>
+    </section>
+
+    <section>
+      <h2>Últimos cambios de equipos</h2>
       <ul id="eventos" class="eventos"></ul>
     </section>
   </main>
 
   <template id="tpl-rele">
-    <article class="rele">
+    <article class="rele tarjeta">
       <div class="rele-cabecera">
         <div>
           <h3 class="rele-nombre"></h3>
@@ -57,13 +94,13 @@
         </div>
         <span class="pastilla"></span>
       </div>
-      <p class="rele-aviso" hidden>El ESP32 todavía no confirmó este estado</p>
       <div class="rele-controles">
         <button data-accion="auto">Auto</button>
         <button data-accion="on">Encender</button>
         <button data-accion="off">Apagar</button>
         <select class="duracion" aria-label="Duración del modo manual">
           <option value="">sin límite</option>
+          <option value="5">5 min</option>
           <option value="15">15 min</option>
           <option value="60">1 h</option>
           <option value="240">4 h</option>

@@ -52,8 +52,14 @@ function motivoMostrado(texto) {
   return texto.replace(/\d+\.\d+/g, n => (Number(n) * 10).toFixed(1)) + ' hPa';
 }
 const $ = sel => document.querySelector(sel);
-const hora = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-const fechaCorta = ts => new Date(ts).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+// Fechas y horas siempre en formato argentino de 24 h (14:30, 17/10), sin importar
+// el idioma del navegador. hourCycle 'h23' fuerza 00–23 en vez de AM/PM.
+const FORMATO = { locale: 'es-AR', h24: { hourCycle: 'h23' } };
+const hora = ts => new Date(ts).toLocaleTimeString(FORMATO.locale, { hour: '2-digit', minute: '2-digit', ...FORMATO.h24 });
+const fechaCorta = ts => new Date(ts).toLocaleString(FORMATO.locale,
+  { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', ...FORMATO.h24 });
+const fechaCompleta = ts => new Date(ts).toLocaleString(FORMATO.locale,
+  { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', ...FORMATO.h24 });
 
 let datos = null;          // última respuesta de /api/salas
 let elegida = localStorage.getItem('sala') || null;
@@ -300,8 +306,15 @@ function armarFormularioRegla(form, sid, rid, regla) {
       input.add(new Option('menor al umbral', 'menor'));
     } else {
       input = crearCampo(form, etiqueta, 'input');
-      input.type = clase;
-      if (clase === 'number') input.step = 'any';
+      if (clase === 'time') {
+        // Texto "HH:MM" en vez de <input type=time>: ese control muestra AM/PM
+        // según el idioma del navegador.
+        Object.assign(input, { type: 'text', inputMode: 'numeric', maxLength: 5, placeholder: 'HH:MM',
+          pattern: '([01][0-9]|2[0-3]):[0-5][0-9]', title: 'Hora en formato 24 h, por ejemplo 14:30' });
+      } else {
+        input.type = clase;
+        if (clase === 'number') input.step = 'any';
+      }
     }
     input.name = clave;
     if (regla[clave] != null) input.value = regla[clave];
@@ -445,7 +458,7 @@ async function actualizarHistorico() {
         },
         plugins: {
           legend: { labels: { color: '#f1f5f9', boxWidth: 12 } },
-          tooltip: { callbacks: { title: items => new Date(items[0].parsed.x).toLocaleString() } },
+          tooltip: { callbacks: { title: items => fechaCompleta(items[0].parsed.x) } },
         },
       },
     });
@@ -458,7 +471,7 @@ async function actualizarHistorico() {
 }
 
 function etiquetaTiempo(conFecha) {
-  return valor => conFecha ? new Date(valor).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) : hora(valor);
+  return valor => conFecha ? new Date(valor).toLocaleDateString(FORMATO.locale, { day: '2-digit', month: '2-digit' }) : hora(valor);
 }
 
 function pintarEventos(eventos) {
@@ -510,11 +523,12 @@ formBitacora.onsubmit = async ev => {
   const f = formBitacora;
   const entrada = { tipo: f.tipo.value, texto: f.texto.value };
   if (entrada.tipo === 'etapa') entrada.etapa = f.etapa.value;
-  if (f.fecha.value) entrada.fecha = new Date(f.fecha.value).toISOString();
+  if (f.fecha.value) entrada.fecha = new Date(`${f.fecha.value}T${f.hora.value || '12:00'}`).toISOString();
   try {
     await api('POST', `/api/salas/${elegida}/bitacora`, entrada);
     f.texto.value = '';
     f.fecha.value = '';
+    f.hora.value = '';
     $('#error-bitacora').textContent = '';
     await actualizarBitacora();
     await actualizar();

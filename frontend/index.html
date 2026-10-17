@@ -88,7 +88,9 @@
             <option value="vacia">Sala vacía</option>
           </select>
         </label>
-        <label>Cuándo<input type="datetime-local" name="fecha"></label>
+        <label>Día (vacío = ahora)<input type="date" name="fecha"></label>
+        <label>Hora<input type="text" name="hora" inputmode="numeric" maxlength="5" placeholder="HH:MM"
+               pattern="([01][0-9]|2[0-3]):[0-5][0-9]" title="Hora en formato 24 h, por ejemplo 14:30"></label>
         <label class="ancho">Detalle<textarea name="texto" rows="2" placeholder="EC 1.8, pH 6.2, 2 L por maceta…"></textarea></label>
         <p class="error ancho" id="error-bitacora"></p>
         <button class="ancho">Agregar a la bitácora</button>

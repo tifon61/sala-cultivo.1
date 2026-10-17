@@ -63,7 +63,7 @@ async function refrescar(){
  $('#titulo').textContent='Sala '+e.id;
  $('#chips').innerHTML=chip('Wi-Fi',e.wifi)+chip('Servidor',e.servidor)+chip(e.hay_hora?'Hora OK':'Sin hora',e.hay_hora)+(e.pendientes?chip(e.pendientes+' mediciones sin enviar',false):'');
  $('#lecturas').innerHTML=Object.entries(e.lecturas||{}).map(([k,v])=>{const n=NOMBRES[k]||[k,'',1];return `<div class="card"><small>${n[0]}</small><b>${v.toFixed(n[2])}</b> ${n[1]}</div>`}).join('')||'<p class="motivo">Sin lecturas</p>';
- $('#hora').textContent=e.hay_hora?new Date(e.epoch*1000).toLocaleString():'El módulo no sabe la hora: los horarios no funcionan.';
+ $('#hora').textContent=e.hay_hora?new Date(e.epoch*1000).toLocaleString('es-AR',{hourCycle:'h23'}):'El módulo no sabe la hora: los horarios no funcionan.';
  if(!e.hay_hora&&!refrescar.sincronizado){refrescar.sincronizado=true;sincronizarHora()}
  for(const [id,r] of Object.entries(e.reles)){
   if(!armado[id])armado[id]=armarRele(id);
@@ -101,7 +101,9 @@ function armarForm(f,id,regla){
  for(const [k,et,cl] of CAMPOS[regla.tipo]){
   const l=document.createElement('label');l.textContent=et;let i;
   if(cl==='sel'){i=document.createElement('select');i.add(new Option('mayor','mayor'));i.add(new Option('menor','menor'))}
-  else{i=document.createElement('input');i.type=cl;if(cl==='number')i.step='any'}
+  else{i=document.createElement('input');
+   if(cl==='time')Object.assign(i,{type:'text',inputMode:'numeric',maxLength:5,placeholder:'HH:MM',pattern:'([01][0-9]|2[0-3]):[0-5][0-9]'});
+   else{i.type=cl;if(cl==='number')i.step='any'}}
   i.name=k;if(regla[k]!=null)i.value=regla[k];l.append(i);f.append(l);
  }
  const b=document.createElement('button');b.className='ancho';b.textContent='Guardar regla';f.append(b);

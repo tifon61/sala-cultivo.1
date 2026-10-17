@@ -5,17 +5,16 @@
 //   POST /api/salas/<id>/reles/<rele>/…  -> control manual / automático / reglas
 
 const VARIABLES = {
-  temperatura:  { nombre: 'Temp',      unidad: '°C',  dec: 1 },
-  humedad:      { nombre: 'Humedad',   unidad: '%',   dec: 0 },
-  dpv:          { nombre: 'DPV',       unidad: 'kPa', dec: 2 },
-  co2:          { nombre: 'CO₂',       unidad: 'ppm', dec: 0 },
-  temperatura2: { nombre: 'Temp SCD40', unidad: '°C', dec: 1 },
-  humedad2:     { nombre: 'Hum SCD40', unidad: '%',   dec: 0 },
-  rssi:         { nombre: 'Wi-Fi',     unidad: 'dBm', dec: 0 },
+  temperatura:  { nombre: 'Temp DHT',   unidad: '°C',  dec: 1 },
+  humedad:      { nombre: 'Hum DHT',    unidad: '%',   dec: 1 },
+  dpv:          { nombre: 'DPV',        unidad: 'kPa', dec: 2 },
+  co2:          { nombre: 'CO₂',        unidad: 'ppm', dec: 0 },
+  temperatura2: { nombre: 'Temp SCD40', unidad: '°C',  dec: 1 },
+  humedad2:     { nombre: 'Hum SCD40',  unidad: '%',   dec: 1 },
+  rssi:         { nombre: 'Wi-Fi',      unidad: 'dBm', dec: 0 },
 };
-const EN_PLANO = ['temperatura', 'humedad', 'dpv', 'co2'];
-// Si falta el DHT (o su dato es viejo), el esquema muestra el del SCD40.
-const RESPALDO = { temperatura: 'temperatura2', humedad: 'humedad2' };
+// Variables del esquema, de a pares (izquierda | derecha) para comparar los dos sensores.
+const EN_PLANO = ['temperatura', 'temperatura2', 'humedad', 'humedad2', 'dpv', 'co2'];
 const ICONOS = { luz: '💡', riego: '💧', humidificador: '💨', deshumidificador: '🌀', extractor: '🌬️' };
 const ETAPAS = { germinacion: 'Germinación', plantines: 'Plantines', vegetativo: 'Vegetativo', floracion: 'Floración',
                  secado: 'Secado', curado: 'Curado', vacia: 'Vacía' };
@@ -102,11 +101,7 @@ function pintarPlano() {
 
     const vars = document.createElement('div');
     vars.className = 'variables';
-    for (const principal of EN_PLANO) {
-      const respaldo = RESPALDO[principal];
-      const usarRespaldo = respaldo && s.lecturas[respaldo] && !s.lecturas[respaldo].viejo &&
-        (!s.lecturas[principal] || s.lecturas[principal].viejo);
-      const v = usarRespaldo ? respaldo : principal;
+    for (const v of EN_PLANO) {
       const l = s.lecturas[v];
       const d = document.createElement('div');
       d.className = 'variable' + (!l || l.viejo ? ' vieja' : '');

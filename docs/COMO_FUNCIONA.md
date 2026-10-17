@@ -105,6 +105,7 @@ Si pasan 2 minutos sin servidor, el ESP32 pasa a modo **AP+STA**: sigue buscando
 - **`servicio.py`:** escucha a los módulos y guarda lo que mandan. Si una medición llega atrasada (del buffer), se guarda con su hora real y no reemplaza a la última.
 - **`modelos.py`:** valida la configuración **antes** de mandarla (una regla mal escrita nunca llega a la placa). También calcula el "próximo cambio" que ves en el esquema.
 - **`main.py`:** la API. Cada cambio sube la `version` de la config de esa sala. El ESP32 informa qué versión aplicó, y si no coinciden, la web te avisa con "configuración pendiente".
+- **`acceso.py`:** la clave de la web (`WEB_CLAVE`). Al ingresar, el servidor deja una cookie **firmada con HMAC** que vence a los 30 días. Nadie puede fabricarla ni alargarla sin saber la clave, y cambiar la clave cierra todas las sesiones. Después de 5 intentos fallidos desde una IP, hace esperar un minuto.
 - **Bitácora:** tabla `bitacora`. La etapa actual es la última entrada de tipo *etapa* según su fecha. Por eso podés cargar "pasé a floración el 26/09" días después y el contador queda bien.
 
 👉 Para ver los mensajes en vivo: `docker compose exec mosquitto mosquitto_sub -u backend -P <clave> -t 'cultivo/#' -v`

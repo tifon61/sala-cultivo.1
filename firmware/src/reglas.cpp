@@ -104,6 +104,12 @@ static Decision evaluarPulsos(const Regla& r, const Tiempo& t) {
   } else {
     // Sin reloj no hay ventana: contamos desde que arrancó la placa.
     // Es preferible regar a cualquier hora a no regar durante días.
+    // Pero el primer pulso va un período completo después de arrancar: si no,
+    // cada reinicio (un corte de luz, por ejemplo) dispararía un riego.
+    if (t.uptimeS < periodo) {
+      return decision(false, "pulsos: sin hora, primer pulso en %u min",
+                      (unsigned)((periodo - t.uptimeS) / 60 + 1));
+    }
     transcurrido = t.uptimeS;
   }
 

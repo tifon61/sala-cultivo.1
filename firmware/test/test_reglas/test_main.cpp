@@ -131,6 +131,18 @@ void test_pulsos_sin_hora_cuentan_desde_el_arranque() {
   TEST_ASSERT_FALSE(decidir(c.reles[0], t, l, false).encendido);
 }
 
+void test_reinicio_sin_hora_no_riega_al_arrancar() {
+  ConfigSala c = cargar(CONFIG);
+  Lecturas l;
+  Tiempo t;  // recién arrancó, sin hora
+  for (uint32_t s = 0; s < 7200; s += 5) {
+    t.uptimeS = s;
+    TEST_ASSERT_FALSE(decidir(c.reles[0], t, l, false).encendido);
+  }
+  t.uptimeS = 7200;  // un período después: primer pulso
+  TEST_ASSERT_TRUE(decidir(c.reles[0], t, l, false).encendido);
+}
+
 // ------------------------------------------------------------------- manual
 
 void test_manual_con_vencimiento() {
@@ -198,6 +210,7 @@ int main() {
   RUN_TEST(test_dato_viejo_apaga);
   RUN_TEST(test_pulsos_dentro_de_la_ventana);
   RUN_TEST(test_pulsos_sin_hora_cuentan_desde_el_arranque);
+  RUN_TEST(test_reinicio_sin_hora_no_riega_al_arrancar);
   RUN_TEST(test_manual_con_vencimiento);
   RUN_TEST(test_manual_con_limite_sin_hora_no_se_aplica);
   RUN_TEST(test_rele_ausente_queda_apagado);

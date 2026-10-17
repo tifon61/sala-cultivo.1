@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
     await pool.close()
 
 
-app = FastAPI(title="Salas de cultivo", lifespan=lifespan)
+app = FastAPI(title="Panel de control", lifespan=lifespan)
 
 # ----------------------------------------------------------------- acceso
 acceso = Acceso(os.environ.get("WEB_CLAVE", ""))

@@ -6,7 +6,7 @@
 static const char PAGINA_LOCAL[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sala - modo local</title>
+<title>Panel - modo local</title>
 <style>
 body{margin:0;background:#020617;color:#f1f5f9;font:15px/1.4 system-ui,sans-serif}
 main{max-width:560px;margin:0 auto;padding:16px}
@@ -27,7 +27,7 @@ form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 label{display:grid;gap:3px;font-size:.72rem;color:#94a3b8}.ancho{grid-column:1/-1}
 .error{color:#f87171;font-size:.85rem}details summary{color:#94a3b8;font-size:.85rem;margin-top:8px}
 </style></head><body><main>
-<h1 id="titulo">Sala</h1>
+<h1 id="titulo">Módulo</h1>
 <div class="chips" id="chips"></div>
 <div class="aviso">Estás en el <b>modo local</b> del módulo. Lo que cambies acá se aplica ya mismo.
 Cuando vuelva la conexión con el servidor, <b>manda la configuración del servidor</b>.</div>
@@ -60,7 +60,7 @@ function chip(t,ok){return `<span class="${ok?'ok':'mal'}">${t}</span>`}
 async function refrescar(){
  try{estado=await api('/api/estado')}catch(e){$('#error').textContent='Sin respuesta del módulo';return}
  const e=estado;$('#error').textContent=e.error_config?'Config con error: '+e.error_config:'';
- $('#titulo').textContent='Sala '+e.id;
+ $('#titulo').textContent='Módulo '+e.id;
  $('#chips').innerHTML=chip('Wi-Fi',e.wifi)+chip('Servidor',e.servidor)+chip(e.hay_hora?'Hora OK':'Sin hora',e.hay_hora)+(e.pendientes?chip(e.pendientes+' mediciones sin enviar',false):'');
  $('#lecturas').innerHTML=Object.entries(e.lecturas||{}).map(([k,v])=>{const n=NOMBRES[k]||[k,'',1];return `<div class="card"><small>${n[0]}</small><b>${v.toFixed(n[2])}</b> ${n[1]}</div>`}).join('')||'<p class="motivo">Sin lecturas</p>';
  $('#hora').textContent=e.hay_hora?new Date(e.epoch*1000).toLocaleString('es-AR',{hourCycle:'h23'}):'El módulo no sabe la hora: los horarios no funcionan.';

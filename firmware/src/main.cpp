@@ -159,14 +159,16 @@ bool aplicarConfig(const char* texto, size_t largo, bool desdeLocal) {
 
 void cargarPreferencias() {
   prefs.begin("sala", false);
-  red.ssid = prefs.getString("ssid", WIFI_SSID);
-  red.clave = prefs.getString("clave", WIFI_CLAVE);
-  red.mqttHost = prefs.getString("mhost", MQTT_HOST);
+  // Si nunca se cambió desde la red de emergencia, se usa lo de config.h.
+  // (isKey evita los mensajes de error "NOT_FOUND" en el arranque.)
+  red.ssid = prefs.isKey("ssid") ? prefs.getString("ssid") : String(WIFI_SSID);
+  red.clave = prefs.isKey("clave") ? prefs.getString("clave") : String(WIFI_CLAVE);
+  red.mqttHost = prefs.isKey("mhost") ? prefs.getString("mhost") : String(MQTT_HOST);
   red.mqttPuerto = prefs.getUShort("mport", MQTT_PUERTO);
-  red.mqttClave = prefs.getString("mclave", MQTT_CLAVE);
+  red.mqttClave = prefs.isKey("mclave") ? prefs.getString("mclave") : String(MQTT_CLAVE);
   red.tls = prefs.getBool("tls", MQTT_TLS);
 
-  String guardada = prefs.getString("config", "");
+  String guardada = prefs.isKey("config") ? prefs.getString("config") : String();
   bool local = prefs.getBool("cfg_local", false);
   if (guardada.isEmpty() || !aplicarConfig(guardada.c_str(), guardada.length(), local)) {
     const char* inicial = CONFIG_INICIAL;

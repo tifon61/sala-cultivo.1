@@ -35,6 +35,10 @@
 #error "Falta include/config.h: copiá include/config.example.h como config.h y completalo"
 #endif
 
+#ifndef TIPO_DHT
+#define TIPO_DHT DHT11  // config.h viejos no tienen esta línea
+#endif
+
 #include "certificados.h"
 #include "config_sala.h"
 #include "pagina_local.h"
@@ -88,7 +92,7 @@ WiFiClient clientePlano;
 PubSubClient mqtt;
 WebServer web(80);
 DNSServer dns;
-DHT dht(PIN_DHT, DHT11);
+DHT dht(PIN_DHT, TIPO_DHT);
 SensirionI2cScd4x scd4x;
 bool scdOk = false;
 
@@ -201,7 +205,7 @@ void medir() {
     lecturas.poner("temperatura2", t2, ahora);
     lecturas.poner("humedad2", h2, ahora);
   }
-  // DPV con el DHT11; si el DHT11 falla, con la temperatura/humedad del SCD40.
+  // DPV con el DHT; si el DHT falla (o no está), con la temperatura/humedad del SCD40.
   float tt, hh;
   if ((lecturas.buscar("temperatura", ahora, tt) && lecturas.buscar("humedad", ahora, hh)) ||
       (lecturas.buscar("temperatura2", ahora, tt) && lecturas.buscar("humedad2", ahora, hh))) {
@@ -212,7 +216,7 @@ void medir() {
 void tareaControl(void*) {
   uint32_t ultimaMedicion = 0;
   for (;;) {
-    if (ultimaMedicion == 0 || uptimeS() - ultimaMedicion >= 5) {  // DHT11: no más de 1 lectura/s
+    if (ultimaMedicion == 0 || uptimeS() - ultimaMedicion >= 5) {  // DHT11: 1 lectura/s como máximo; DHT22: 1 cada 2 s
       ultimaMedicion = uptimeS();
       medir();
     }

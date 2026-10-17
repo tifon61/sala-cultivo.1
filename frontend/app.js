@@ -14,6 +14,8 @@ const VARIABLES = {
   rssi:         { nombre: 'Wi-Fi',     unidad: 'dBm', dec: 0 },
 };
 const EN_PLANO = ['temperatura', 'humedad', 'dpv', 'co2'];
+// Si falta el DHT (o su dato es viejo), el esquema muestra el del SCD40.
+const RESPALDO = { temperatura: 'temperatura2', humedad: 'humedad2' };
 const ICONOS = { luz: '💡', riego: '💧', humidificador: '💨', deshumidificador: '🌀', extractor: '🌬️' };
 const ETAPAS = { germinacion: 'Germinación', plantines: 'Plantines', vegetativo: 'Vegetativo', floracion: 'Floración',
                  secado: 'Secado', curado: 'Curado', vacia: 'Vacía' };
@@ -100,7 +102,11 @@ function pintarPlano() {
 
     const vars = document.createElement('div');
     vars.className = 'variables';
-    for (const v of EN_PLANO) {
+    for (const principal of EN_PLANO) {
+      const respaldo = RESPALDO[principal];
+      const usarRespaldo = respaldo && s.lecturas[respaldo] && !s.lecturas[respaldo].viejo &&
+        (!s.lecturas[principal] || s.lecturas[principal].viejo);
+      const v = usarRespaldo ? respaldo : principal;
       const l = s.lecturas[v];
       const d = document.createElement('div');
       d.className = 'variable' + (!l || l.viejo ? ' vieja' : '');

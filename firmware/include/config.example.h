@@ -34,7 +34,8 @@
 #define ZONA_HORARIA   "<-03>3"
 
 // --- Sensores ----------------------------------------------------------------
-#define PIN_DHT        4                   // DHT11: temperatura y humedad
+#define PIN_DHT        4                   // DHT: temperatura y humedad
+#define TIPO_DHT       DHT22               // DHT11 o DHT22, según el sensor que tenga ESTA placa
 #define PIN_SDA        21                  // SCD40: CO2 (+ temperatura2 y humedad2)
 #define PIN_SCL        22
 

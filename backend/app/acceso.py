@@ -30,6 +30,7 @@ COOKIE = "sesion"
 DURACION_S = 30 * 24 * 3600          # 30 días
 # Lo que se puede ver sin clave: la página de login, sus estilos y el login en sí.
 PUBLICO = {"/login.html", "/estilos.css", "/api/login"}
+PUBLICO_PREFIJOS = ("/vendor/fonts/",)  # tipografías de la pantalla de ingreso
 MAX_FALLOS = 5                       # intentos fallidos seguidos por IP...
 BLOQUEO_S = 60                       # ...antes de hacerla esperar un minuto
 MAX_FALLOS_TOTAL = 20                # y si llegan muchos desde IPs distintas, se frena todo
@@ -86,7 +87,8 @@ class Acceso:
 
     async def middleware(self, request: Request, call_next):
         ruta = request.url.path
-        if not self.activo or ruta in PUBLICO or token_valido(self.clave, request.cookies.get(COOKIE)):
+        publica = ruta in PUBLICO or ruta.startswith(PUBLICO_PREFIJOS)
+        if not self.activo or publica or token_valido(self.clave, request.cookies.get(COOKIE)):
             respuesta = await call_next(request)
         elif ruta.startswith("/api/"):
             respuesta = JSONResponse({"detail": "Necesitás ingresar la clave"}, status_code=401)

@@ -9,30 +9,25 @@ const VARIABLES = {
   humedad:      { nombre: 'Hum DHT',    unidad: '%',   dec: 1 },
   dpv:          { nombre: 'DPV',        unidad: 'kPa', dec: 2 },
   co2:          { nombre: 'CO₂',        unidad: 'ppm', dec: 0 },
-  temperatura2: { nombre: 'Temp SCD40', unidad: '°C',  dec: 1 },
-  humedad2:     { nombre: 'Hum SCD40',  unidad: '%',   dec: 1 },
+  temperatura2: { nombre: 'Temp SCD',   unidad: '°C',  dec: 1 },
+  humedad2:     { nombre: 'Hum SCD',    unidad: '%',   dec: 1 },
   rssi:         { nombre: 'Wi-Fi',      unidad: 'dBm', dec: 0 },
 };
 // Variables del esquema, de a pares (izquierda | derecha) para comparar los dos sensores.
 const EN_PLANO = ['temperatura', 'temperatura2', 'humedad', 'humedad2', 'dpv', 'co2'];
-const ICONOS = { luz: '💡', riego: '💧', humidificador: '💨', deshumidificador: '🌀', extractor: '🌬️' };
 const ETAPAS = { germinacion: 'Germinación', plantines: 'Plantines', vegetativo: 'Vegetativo', floracion: 'Floración',
                  secado: 'Secado', curado: 'Curado', vacia: 'Vacía' };
 const TIPOS = { etapa: 'Etapa', nota: 'Nota', riego_nutrientes: 'Riego con nutrientes', poda: 'Poda',
                 trasplante: 'Trasplante', plaga: 'Plaga', cosecha: 'Cosecha', mantenimiento: 'Mantenimiento' };
-// Un color fijo por variable (el mismo en todos los gráficos y períodos).
+// Colores: se leen de estilos.css (variables --c-temperatura, --tinta...), así
+// hay un solo lugar donde cambiarlos y cada tema (papel / noche) tiene los suyos.
 // Los pares que comparten gráfico (DHT vs SCD40) se verificaron para que se
 // distingan también con daltonismo; además el SCD40 va con línea punteada.
-const COLOR_VARIABLE = {
-  temperatura: '#d95926',   // naranja
-  temperatura2: '#9085e9',  // violeta
-  humedad: '#3987e5',       // azul
-  humedad2: '#199e70',      // turquesa
-  dpv: '#d55181',           // magenta
-  co2: '#c98500',           // amarillo
-};
+const css = nombre => getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+const colorDe = variable => css(`--c-${variable}`) || css('--tenue');
 const PUNTEADAS = new Set(['temperatura2', 'humedad2']);
-const COLOR_OTRA = '#94a3b8';
+// Cada sala tiene su color (--sala-1, --sala-2... en estilos.css), según su orden.
+const colorSala = i => `var(--sala-${(i % 4) + 1})`;
 
 // Unidad del DPV: el sistema guarda todo en kPa; la conversión es solo para mostrar.
 // 1 kPa = 10 hPa.
@@ -113,7 +108,7 @@ async function actualizar() {
 }
 
 function pintarConexion(ok, texto) {
-  $('#conexion').className = 'conexion ' + (ok ? 'ok' : 'mal');
+  $('#conexion .led').className = 'led ' + (ok ? 'ok' : 'mal');
   $('#conexion-texto').textContent = texto;
 }
 
@@ -121,30 +116,38 @@ function pintarConexion(ok, texto) {
 
 function pintarPlano() {
   const plano = $('#plano');
-  plano.replaceChildren(...datos.salas.map(s => {
+  plano.replaceChildren(...datos.salas.map((s, i) => {
     const caja = document.createElement('div');
     caja.className = 'sala-plano' + (s.id === elegida ? ' elegida' : '');
+    caja.style.setProperty('--sala', colorSala(i));
     caja.onclick = () => elegirSala(s.id);
 
-    const titulo = document.createElement('div');
-    titulo.className = 'titulo';
-    titulo.innerHTML = `<span class="punto ${s.online ? 'ok' : 'mal'}"></span><span></span>`;
-    titulo.lastChild.textContent = s.nombre;
-    const etapa = document.createElement('span');
-    etapa.className = 'etapa ' + (s.etapa || '');
-    etapa.textContent = textoEtapa(s);
+    const cab = document.createElement('div');
+    cab.className = 'sp-cab';
+    cab.innerHTML = `<span class="led ${s.online ? 'ok' : 'mal'}" title="${s.online ? 'conectado' : 'desconectado'}"></span><h3></h3>`;
+    cab.querySelector('h3').textContent = s.nombre;
 
-    const vars = document.createElement('div');
-    vars.className = 'variables';
+    const etapa = document.createElement('div');
+    etapa.className = 'sp-etapa';
+    if (s.etapa) {
+      etapa.innerHTML = '<b></b> · <span></span>';
+      etapa.children[0].textContent = ETAPAS[s.etapa] || s.etapa;
+      etapa.children[1].textContent = `día ${s.dia_etapa} · semana ${Math.ceil(s.dia_etapa / 7)}`;
+    } else {
+      etapa.textContent = 'sin etapa registrada';
+    }
+
+    const lecturas = document.createElement('div');
+    lecturas.className = 'lecturas';
     for (const v of EN_PLANO) {
       const l = s.lecturas[v];
       const d = document.createElement('div');
-      d.className = 'variable' + (!l || l.viejo ? ' vieja' : '');
-      d.innerHTML = '<small></small><b></b><span class="unidad"></span>';
-      d.children[0].textContent = info(v).nombre;
-      d.children[1].textContent = l ? mostrar(v, l.valor).toFixed(info(v).dec) : '—';
-      d.children[2].textContent = l ? info(v).unidad : '';
-      vars.append(d);
+      d.className = 'lectura' + (!l || l.viejo ? ' vieja' : '');
+      d.innerHTML = '<span class="etiqueta"></span><span class="valor"><span></span><small></small></span>';
+      d.querySelector('.etiqueta').textContent = info(v).nombre;
+      d.querySelector('.valor span').textContent = l ? mostrar(v, l.valor).toFixed(info(v).dec) : '—';
+      d.querySelector('small').textContent = l ? info(v).unidad : '';
+      lecturas.append(d);
     }
 
     const equipos = document.createElement('div');
@@ -155,21 +158,20 @@ function pintarPlano() {
       const e = document.createElement('div');
       e.className = 'equipo' + (r.on ? ' on' : '');
       e.title = motivoMostrado(r.motivo);
-      e.innerHTML = '<span class="icono"></span><span class="nombre-eq"></span>';
-      e.firstChild.textContent = ICONOS[r.id] || '⚙️';
-      e.lastChild.textContent = `${r.nombre}${r.manual_vigente ? ' ✋' : ''}`;
+      e.innerHTML = '<span class="led"></span><span class="nom"></span>';
+      e.firstChild.classList.toggle('on', !!r.on);
+      e.lastChild.textContent = r.nombre + (r.manual_vigente ? ' (manual)' : '');
       equipos.append(e);
       if (r.proximo) {
         const li = document.createElement('li');
-        li.innerHTML = '<span></span> <span></span> · <b data-cuando></b>';
-        li.children[0].textContent = ICONOS[r.id] || '⚙️';
-        li.children[1].textContent = r.proximo.texto;
-        li.children[2].dataset.cuando = r.proximo.cuando;
-        li.children[2].textContent = cuentaRegresiva(r.proximo.cuando);
+        li.innerHTML = '<span></span><b data-cuando></b>';
+        li.children[0].textContent = `${r.nombre}: ${r.proximo.texto}`;
+        li.children[1].dataset.cuando = r.proximo.cuando;
+        li.children[1].textContent = cuentaRegresiva(r.proximo.cuando);
         proximos.append(li);
       }
     }
-    caja.append(titulo, etapa, vars, equipos, proximos);
+    caja.append(cab, etapa, lecturas, equipos, proximos);
     return caja;
   }));
 }
@@ -199,6 +201,7 @@ function pintarPestanas() {
   $('#pestanas').replaceChildren(...datos.salas.map(s => {
     const b = document.createElement('button');
     b.textContent = s.nombre;
+    b.style.setProperty('--sala', colorSala(datos.salas.indexOf(s)));
     b.className = s.id === elegida ? 'activo' : '';
     b.onclick = () => elegirSala(s.id);
     return b;
@@ -208,6 +211,8 @@ function pintarPestanas() {
 function pintarDetalle() {
   const s = sala();
   if (!s) return;
+  // El color de la sala elegida tiñe los botones y fichas de la parte de abajo.
+  document.documentElement.style.setProperty('--sala', colorSala(datos.salas.indexOf(s)));
   const m = s.modulo;
   const partes = [s.online ? `Módulo conectado · último dato ${s.ultimo_dato ? hora(s.ultimo_dato) : '—'}` : 'Módulo DESCONECTADO (sigue funcionando solo con su última configuración)'];
   if (m.version_aplicada != null && m.version_aplicada !== m.version_servidor) partes.push('<span class="alerta">configuración pendiente de llegar al módulo</span>');
@@ -217,6 +222,7 @@ function pintarDetalle() {
   if (m.pendientes) partes.push(`${m.pendientes} mediciones guardadas por enviar`);
   if (m.error) partes.push(`<span class="alerta">error: ${m.error.replace(/</g, '&lt;')}</span>`);
   $('#modulo').innerHTML = partes.join(' · ');
+  if ($('#form-nombre').nombre.hidden) $('#form-nombre').nombre.value = s.nombre;
   pintarReles(s);
 }
 
@@ -233,11 +239,12 @@ function pintarReles(s) {
       $('#reles').append(tarjetas[r.id]);
     }
     const t = tarjetas[r.id];
-    t.querySelector('.rele-nombre').textContent = `${ICONOS[r.id] || '⚙️'} ${r.nombre}`;
+    t.querySelector('.rele-nombre').textContent = r.nombre;
     t.querySelector('.rele-motivo').textContent = motivoMostrado(r.motivo);
-    const pastilla = t.querySelector('.pastilla');
-    pastilla.textContent = r.on == null ? '—' : (r.on ? 'ENCENDIDO' : 'APAGADO');
-    pastilla.classList.toggle('on', !!r.on);
+    t.querySelector('.led').classList.toggle('on', !!r.on);
+    const estado = t.querySelector('.estado');
+    estado.textContent = r.on == null ? 'sin datos' : (r.on ? 'encendido' : 'apagado');
+    estado.classList.toggle('on', !!r.on);
     t.querySelector('[data-accion=auto]').classList.toggle('activo', !r.manual_vigente);
     t.querySelector('[data-accion=on]').classList.toggle('activo', r.manual_vigente && r.manual_estado);
     t.querySelector('[data-accion=off]').classList.toggle('activo', r.manual_vigente && !r.manual_estado);
@@ -430,10 +437,10 @@ async function actualizarHistorico() {
     const datasets = series.map(([variable, puntos]) => ({
       label: info(variable).nombre,
       data: puntos.map(([t, v]) => ({ x: new Date(t).getTime(), y: mostrar(variable, v) })),
-      borderColor: COLOR_VARIABLE[variable] || COLOR_OTRA,
-      backgroundColor: COLOR_VARIABLE[variable] || COLOR_OTRA,
+      borderColor: colorDe(variable),
+      backgroundColor: colorDe(variable),
       borderDash: PUNTEADAS.has(variable) ? [6, 4] : [],
-      borderWidth: 2, pointRadius: 0, tension: 0.25,
+      borderWidth: 1.75, pointRadius: 0, tension: 0.2,
     }));
     if (graficos[unidad]) {
       graficos[unidad].data.datasets = datasets;
@@ -454,11 +461,16 @@ async function actualizarHistorico() {
         animation: false, maintainAspectRatio: false, parsing: false,
         interaction: { mode: 'nearest', axis: 'x', intersect: false },
         scales: {
-          x: { type: 'linear', ...ejeX, ticks: { color: '#94a3b8', maxTicksLimit: 6, callback: etiquetaTiempo(conFecha) }, grid: { color: '#1e293b' } },
-          y: { title: { display: true, text: unidad, color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+          x: { type: 'linear', ...ejeX, border: { color: css('--linea-fuerte') },
+               afterBuildTicks: escala => { escala.ticks = marcasTiempo(escala.min, escala.max); },
+               ticks: { color: css('--tenue'), maxTicksLimit: 6, callback: etiquetaTiempo(conFecha) },
+               grid: { color: css('--linea'), tickLength: 4 } },
+          y: { border: { color: css('--linea-fuerte') },
+               title: { display: true, text: unidad, color: css('--tenue') },
+               ticks: { color: css('--tenue') }, grid: { color: css('--linea') } },
         },
         plugins: {
-          legend: { labels: { color: '#f1f5f9', boxWidth: 12 } },
+          legend: { align: 'start', labels: { color: css('--tinta'), boxWidth: 14, boxHeight: 2, useBorderRadius: false } },
           tooltip: { callbacks: { title: items => fechaCompleta(items[0].parsed.x) } },
         },
       },
@@ -471,6 +483,27 @@ async function actualizarHistorico() {
   pintarEventos(h.eventos);
 }
 
+// Marcas del eje de tiempo en horas o días "redondos" de la hora local
+// (00:00, 04:00, 08:00… o un día a la medianoche), según el largo del período.
+function marcasTiempo(min, max) {
+  const horas = (max - min) / 36e5;
+  const marcas = [];
+  if (horas <= 36) {
+    const paso = horas <= 8 ? 1 : horas <= 16 ? 2 : horas <= 24 ? 4 : 6;
+    const t = new Date(min);
+    t.setMinutes(0, 0, 0);
+    while (t.getHours() % paso) t.setHours(t.getHours() + 1);
+    for (; t <= max; t.setHours(t.getHours() + paso)) if (t >= min) marcas.push({ value: t.getTime() });
+  } else {
+    const dias = horas / 24;
+    const paso = Math.max(1, Math.ceil(dias / 6));
+    const t = new Date(min);
+    t.setHours(0, 0, 0, 0);
+    for (; t <= max; t.setDate(t.getDate() + paso)) if (t >= min) marcas.push({ value: t.getTime() });
+  }
+  return marcas;
+}
+
 function etiquetaTiempo(conFecha) {
   return valor => conFecha ? new Date(valor).toLocaleDateString(FORMATO.locale, { day: '2-digit', month: '2-digit' }) : hora(valor);
 }
@@ -478,14 +511,16 @@ function etiquetaTiempo(conFecha) {
 function pintarEventos(eventos) {
   const lista = $('#eventos');
   lista.replaceChildren();
-  if (!eventos.length) { lista.innerHTML = '<li>Sin cambios en este período.</li>'; return; }
+  if (!eventos.length) { lista.innerHTML = '<li class="vacio-li">Sin cambios en este período.</li>'; return; }
   for (const e of eventos.slice(0, 30)) {
     const li = document.createElement('li');
-    li.innerHTML = '<span></span> · <b></b> → <b></b> <span></span>';
+    li.innerHTML = '<span></span><span><b></b> <span></span> <span></span></span><span></span>';
     li.children[0].textContent = fechaCorta(e.ts);
-    li.children[1].textContent = e.rele;
-    li.children[2].textContent = e.estado ? 'ON' : 'OFF';
-    li.children[3].textContent = `(${motivoMostrado(e.motivo || '')})`;
+    li.querySelector('b').textContent = e.rele;
+    const estado = li.children[1].children[1];
+    estado.textContent = e.estado ? 'ON' : 'OFF';
+    estado.className = e.estado ? 'on' : '';
+    li.children[1].children[2].textContent = `— ${motivoMostrado(e.motivo || '')}`;
     lista.append(li);
   }
 }
@@ -498,13 +533,13 @@ async function actualizarBitacora() {
   try { entradas = await api('GET', `/api/salas/${elegida}/bitacora`); } catch { return; }
   const lista = $('#bitacora');
   lista.replaceChildren();
-  if (!entradas.length) { lista.innerHTML = '<li>Todavía no hay registros.</li>'; return; }
+  if (!entradas.length) { lista.innerHTML = '<li class="vacio-li">Todavía no hay registros.</li>'; return; }
   for (const e of entradas) {
     const li = document.createElement('li');
-    li.innerHTML = '<div><span></span> · <b></b> <span></span></div><button title="Borrar">✕</button>';
-    li.querySelector('span').textContent = fechaCorta(e.fecha);
+    li.innerHTML = '<span></span><span><b></b> <span></span></span><button title="Borrar">✕</button>';
+    li.children[0].textContent = fechaCorta(e.fecha);
     li.querySelector('b').textContent = e.tipo === 'etapa' ? `→ ${ETAPAS[e.etapa] || e.etapa}` : TIPOS[e.tipo] || e.tipo;
-    li.querySelectorAll('span')[1].textContent = e.texto;
+    li.children[1].lastChild.textContent = e.texto;
     li.querySelector('button').onclick = async () => {
       if (!confirm('¿Borrar esta entrada de la bitácora?')) return;
       await api('DELETE', `/api/salas/${elegida}/bitacora/${e.id}`);
@@ -539,6 +574,39 @@ formBitacora.onsubmit = async ev => {
 };
 
 // ------------------------------------------------------------------ arranque
+
+// Renombrar la sala elegida: el botón muestra el campo; Enter o el botón guardan.
+const formNombre = $('#form-nombre');
+$('#btn-renombrar').addEventListener('click', async () => {
+  const campo = formNombre.nombre;
+  if (campo.hidden) {
+    campo.hidden = false;
+    $('#btn-renombrar').textContent = 'Guardar';
+    campo.focus();
+    campo.select();
+    return;
+  }
+  try {
+    await api('PUT', `/api/salas/${elegida}/nombre`, { nombre: campo.value.trim() });
+    campo.hidden = true;
+    $('#btn-renombrar').textContent = 'Renombrar';
+    await actualizar();
+  } catch (e) {
+    alert('No se pudo renombrar: ' + e.message);
+  }
+});
+formNombre.addEventListener('submit', ev => { ev.preventDefault(); $('#btn-renombrar').click(); });
+
+// Si el celular pasa de modo claro a oscuro, se rearman los gráficos con los colores del tema nuevo.
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  for (const u of Object.keys(graficos)) {
+    const caja = graficos[u].canvas.parentElement;
+    graficos[u].destroy();
+    caja.remove();
+    delete graficos[u];
+  }
+  actualizarHistorico();
+});
 
 $('#salir').addEventListener('click', async () => {
   await fetch('/api/logout', { method: 'POST' });

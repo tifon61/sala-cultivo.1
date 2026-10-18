@@ -145,7 +145,11 @@ h3 { margin: 0; font-size: 1rem; font-weight: 600; }
   background: var(--linea);                 /* la "pared" que las une */
   border-radius: var(--radio); overflow: hidden; box-shadow: var(--sombra);
 }
-.sala-plano { position: relative; padding: 16px; background: var(--tarjeta); cursor: pointer; min-width: 0; }
+.sala-plano {
+  position: relative; padding: 16px; background: var(--tarjeta); cursor: pointer; min-width: 0;
+  overflow: hidden; isolation: isolate; transition: background-color 1.2s;
+}
+.sala-plano > :not(.ambiente) { position: relative; z-index: 1; }
 .sala-plano::before {                         /* franja de color de la sala */
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--sala);
   opacity: .35;
@@ -174,6 +178,99 @@ h3 { margin: 0; font-size: 1rem; font-weight: 600; }
   background: color-mix(in srgb, var(--sala) 12%, var(--tarjeta));
 }
 .equipo .nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ------------------------------------------------------------- animaciones
+   Todo se dibuja con CSS: el JS solo pone o saca clases ("on", "luz-on"...).
+   Una animación es una lista de "fotos clave" (@keyframes) que el navegador
+   interpola; "infinite" la repite para siempre. */
+.icono { display: inline-flex; width: 18px; height: 18px; flex: none; }
+.icono svg { width: 100%; height: 100%; overflow: visible;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icono .halo { stroke: none; fill: transparent; }
+.equipo.on .icono path, .equipo.on .icono circle:not(.halo) { fill: color-mix(in srgb, currentColor 22%, transparent); }
+
+.eq-luz.on .halo { fill: #ffb627; animation: brillo 2.4s ease-in-out infinite; }
+.eq-riego.on .gota { animation: goteo 1.4s ease-in infinite; }
+.eq-humidificador.on .vapor path { animation: vapor 1.8s ease-out infinite; }
+.eq-humidificador.on .vapor path:nth-child(2) { animation-delay: .6s; }
+.eq-humidificador.on .vapor path:nth-child(3) { animation-delay: 1.2s; }
+.eq-deshumidificador.on .aspas { transform-origin: 12px 12px; animation: girar .9s linear infinite; }
+
+@keyframes brillo { 0%, 100% { opacity: .25; } 50% { opacity: .55; } }
+@keyframes goteo  { 0% { transform: translateY(-3px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(4px); opacity: 0; } }
+@keyframes vapor  { 0% { transform: translateY(3px); opacity: 0; } 40% { opacity: 1; } 100% { transform: translateY(-5px); opacity: 0; } }
+@keyframes girar  { to { transform: rotate(360deg); } }
+
+/* Capa de "ambiente" detrás del contenido de cada sala. */
+.ambiente { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.ambiente > div { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s; }
+
+/* Luz prendida: un resplandor cálido que "respira" desde arriba. */
+.resplandor { background: radial-gradient(120% 70% at 50% -10%, rgba(255, 182, 39, .32), transparent 70%); }
+.luz-on .resplandor { opacity: 1; animation: respirar 6s ease-in-out infinite; }
+@keyframes respirar { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+/* Luz apagada: la sala se tiñe de azul noche. */
+.sala-plano.luz-off { background: color-mix(in srgb, var(--tarjeta) 90%, #2b3a8c); }
+
+/* Riego: gotas que caen por toda la caja (cada una con su lugar y su ritmo). */
+.gotas i {
+  position: absolute; top: -12px; width: 2px; height: 11px; border-radius: 2px;
+  background: var(--c-humedad); opacity: .45; animation: caer 1.6s linear infinite;
+}
+.riego-on .gotas { opacity: 1; }
+.gotas i:nth-child(1) { left: 8%;  animation-delay: 0s;    animation-duration: 1.5s; }
+.gotas i:nth-child(2) { left: 19%; animation-delay: .7s;   animation-duration: 1.8s; }
+.gotas i:nth-child(3) { left: 31%; animation-delay: .3s;   animation-duration: 1.4s; }
+.gotas i:nth-child(4) { left: 43%; animation-delay: 1.1s;  animation-duration: 1.7s; }
+.gotas i:nth-child(5) { left: 55%; animation-delay: .5s;   animation-duration: 1.5s; }
+.gotas i:nth-child(6) { left: 66%; animation-delay: 1.3s;  animation-duration: 1.9s; }
+.gotas i:nth-child(7) { left: 76%; animation-delay: .2s;   animation-duration: 1.6s; }
+.gotas i:nth-child(8) { left: 86%; animation-delay: .9s;   animation-duration: 1.4s; }
+.gotas i:nth-child(9) { left: 94%; animation-delay: 1.5s;  animation-duration: 1.8s; }
+@keyframes caer { to { transform: translateY(calc(100cqh + 24px)); } }
+.ambiente { container-type: size; }
+
+/* Humidificador: nubes de vapor que suben desde abajo y se desvanecen. */
+.niebla i {
+  position: absolute; bottom: -40px; width: 90px; height: 60px; border-radius: 50%;
+  background: color-mix(in srgb, var(--c-humedad) 30%, transparent); filter: blur(14px);
+  animation: subir 7s ease-out infinite;
+}
+.hum-on .niebla { opacity: 1; }
+.niebla i:nth-child(1) { left: -5%; animation-delay: 0s; }
+.niebla i:nth-child(2) { left: 20%; animation-delay: 1.4s; }
+.niebla i:nth-child(3) { left: 45%; animation-delay: 2.8s; }
+.niebla i:nth-child(4) { left: 65%; animation-delay: 4.2s; }
+.niebla i:nth-child(5) { left: 85%; animation-delay: 5.6s; }
+@keyframes subir {
+  0%   { transform: translateY(0) scale(.7); opacity: 0; }
+  25%  { opacity: 1; }
+  100% { transform: translateY(-160px) scale(1.4); opacity: 0; }
+}
+
+/* Quien pidió "reducir movimiento" en el celular (accesibilidad) ve los
+   estados como colores fijos, sin nada que se mueva. */
+@media (prefers-reduced-motion: reduce) {
+  .sala-plano *, .sala-plano { animation: none !important; transition: none !important; }
+  .gotas, .niebla { display: none; }
+  .eq-luz.on .halo { opacity: .4; }
+}
+
+/* ------------------------------------------------------------- medidor DPV */
+.medidor { margin-top: 4px; }
+.medidor svg { display: block; width: 100%; max-width: 150px; height: auto; }
+.m-fondo, .m-zona { fill: none; stroke-width: 9; stroke-linecap: round; }
+.m-fondo { stroke: var(--linea); }
+.m-zona  { stroke: var(--ok); opacity: .55; }
+.m-aguja {
+  transform-box: view-box; transform-origin: 60px 60px;
+  transition: transform 1.2s cubic-bezier(.3, 1.4, .5, 1);   /* se pasa un poquito y vuelve */
+  stroke: var(--texto); fill: var(--texto); stroke-width: 3; stroke-linecap: round;
+}
+.medidor.sin-dato .m-aguja { opacity: .25; }
+.lectura.fuera .m-aguja { stroke: var(--alerta); fill: var(--alerta); }
+.lectura.fuera .valor { color: var(--alerta); }
+.m-texto { display: block; max-width: 150px; text-align: center; font-size: .7rem; color: var(--ok); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .proximos { list-style: none; margin: 12px 0 0; padding: 0; font-size: .76rem; color: var(--tenue); }
 .proximos li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
 .proximos b { color: var(--texto); font-weight: 600; white-space: nowrap; }

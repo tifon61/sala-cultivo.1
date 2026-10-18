@@ -113,67 +113,172 @@ function pintarConexion(ok, texto) {
 }
 
 // ------------------------------------------------------------------ esquema
+// Cada sala se arma UNA vez y después solo se le cambian números y clases.
+// Si se rearmara entera cada 5 s, las animaciones volverían a empezar.
+
+// Íconos de los equipos (SVG dibujado con el color del texto). Se animan con
+// CSS cuando la ficha tiene la clase "on": la lamparita brilla, la gota cae,
+// el vapor sube y el ventilador gira. Un relé con otro id lleva un punto.
+const ICONOS = {
+  luz: '<svg viewBox="0 0 24 24"><circle class="halo" cx="12" cy="10" r="9"/><path d="M8.5 15.5a6 6 0 1 1 7 0V18h-7z"/><path d="M9.5 21h5"/></svg>',
+  riego: '<svg viewBox="0 0 24 24"><path class="gota" d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/></svg>',
+  humidificador: '<svg viewBox="0 0 24 24"><g class="vapor"><path d="M7 14c-2-2 2-4 0-7"/><path d="M12 14c-2-2 2-4 0-7"/><path d="M17 14c-2-2 2-4 0-7"/></g><path d="M5 17h14v4H5z"/></svg>',
+  deshumidificador: '<svg viewBox="0 0 24 24"><g class="aspas"><path d="M12 12c0-4 1-7 3-7s2 4-3 7z"/><path d="M12 12c3.5 2 5.5 4.5 4.5 6.2S12.5 18 12 12z"/><path d="M12 12c-3.5 2-6.5 2.3-7.5.6S7 8.5 12 12z"/></g><circle cx="12" cy="12" r="1.3"/></svg>',
+};
+const iconoDe = rid => ICONOS[rid] || '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>';
+// Clase que se le pone a la caja de la sala mientras ese equipo está prendido.
+const AMBIENTE = { riego: 'riego-on', humidificador: 'hum-on', deshumidificador: 'deshum-on' };
+
+const cajas = new Map();   // id de sala -> elementos de su caja, para actualizarlos
 
 function pintarPlano() {
   const plano = $('#plano');
-  plano.replaceChildren(...datos.salas.map((s, i) => {
-    const caja = document.createElement('div');
-    caja.className = 'sala-plano' + (s.id === elegida ? ' elegida' : '');
-    caja.style.setProperty('--sala', colorSala(i));
-    caja.onclick = () => elegirSala(s.id);
+  const ids = datos.salas.map(s => s.id).join();
+  if (plano.dataset.ids !== ids) {   // la primera vez, o si se agregó/quitó una sala
+    cajas.clear();
+    plano.replaceChildren(...datos.salas.map((s, i) => armarCaja(s, i)));
+    plano.dataset.ids = ids;
+  }
+  for (const s of datos.salas) actualizarCaja(s, cajas.get(s.id));
+}
 
-    const cab = document.createElement('div');
-    cab.className = 'sp-cab';
-    cab.innerHTML = `<span class="led ${s.online ? 'ok' : 'mal'}" title="${s.online ? 'conectado' : 'desconectado'}"></span><h3></h3>`;
-    cab.querySelector('h3').textContent = s.nombre;
+function armarCaja(s, i) {
+  const caja = document.createElement('div');
+  caja.className = 'sala-plano';
+  caja.style.setProperty('--sala', colorSala(i));
+  caja.onclick = () => elegirSala(s.id);
+  caja.innerHTML = `
+    <div class="ambiente" aria-hidden="true">
+      <div class="resplandor"></div>
+      <div class="gotas">${'<i></i>'.repeat(9)}</div>
+      <div class="niebla">${'<i></i>'.repeat(5)}</div>
+    </div>
+    <div class="sp-cab"><span class="led"></span><h3></h3></div>
+    <div class="sp-etapa"></div>
+    <div class="lecturas"></div>
+    <div class="equipos"></div>
+    <ul class="proximos"></ul>`;
+  const c = { caja, lecturas: {}, fichas: {} };
+  for (const v of EN_PLANO) {
+    const d = document.createElement('div');
+    d.className = 'lectura';
+    d.innerHTML = '<span class="etiqueta"></span><span class="valor"><span></span><small></small></span>';
+    if (v === 'dpv') d.append(armarMedidor());
+    caja.querySelector('.lecturas').append(d);
+    c.lecturas[v] = d;
+  }
+  cajas.set(s.id, c);
+  return caja;
+}
 
-    const etapa = document.createElement('div');
-    etapa.className = 'sp-etapa';
-    if (s.etapa) {
-      etapa.innerHTML = '<b></b> · <span></span>';
-      etapa.children[0].textContent = ETAPAS[s.etapa] || s.etapa;
-      etapa.children[1].textContent = `día ${s.dia_etapa} · semana ${Math.ceil(s.dia_etapa / 7)}`;
-    } else {
-      etapa.textContent = 'sin etapa registrada';
-    }
+function actualizarCaja(s, c) {
+  const { caja } = c;
+  caja.classList.toggle('elegida', s.id === elegida);
+  const led = caja.querySelector('.sp-cab .led');
+  led.className = 'led ' + (s.online ? 'ok' : 'mal');
+  led.title = s.online ? 'conectado' : 'desconectado';
+  caja.querySelector('h3').textContent = s.nombre;
 
-    const lecturas = document.createElement('div');
-    lecturas.className = 'lecturas';
-    for (const v of EN_PLANO) {
-      const l = s.lecturas[v];
-      const d = document.createElement('div');
-      d.className = 'lectura' + (!l || l.viejo ? ' vieja' : '');
-      d.innerHTML = '<span class="etiqueta"></span><span class="valor"><span></span><small></small></span>';
-      d.querySelector('.etiqueta').textContent = info(v).nombre;
-      d.querySelector('.valor span').textContent = l ? mostrar(v, l.valor).toFixed(info(v).dec) : '—';
-      d.querySelector('small').textContent = l ? info(v).unidad : '';
-      lecturas.append(d);
-    }
+  const etapa = caja.querySelector('.sp-etapa');
+  if (s.etapa) {
+    etapa.innerHTML = '<b></b> · <span></span>';
+    etapa.children[0].textContent = ETAPAS[s.etapa] || s.etapa;
+    etapa.children[1].textContent = `día ${s.dia_etapa} · semana ${Math.ceil(s.dia_etapa / 7)}`;
+  } else {
+    etapa.textContent = 'sin etapa registrada';
+  }
 
-    const equipos = document.createElement('div');
-    equipos.className = 'equipos';
-    const proximos = document.createElement('ul');
-    proximos.className = 'proximos';
-    for (const r of s.reles) {
-      const e = document.createElement('div');
-      e.className = 'equipo' + (r.on ? ' on' : '');
-      e.title = motivoMostrado(r.motivo);
-      e.innerHTML = '<span class="led"></span><span class="nom"></span>';
-      e.firstChild.classList.toggle('on', !!r.on);
-      e.lastChild.textContent = r.nombre + (r.manual_vigente ? ' (manual)' : '');
+  for (const v of EN_PLANO) {
+    const l = s.lecturas[v], d = c.lecturas[v];
+    d.classList.toggle('vieja', !l || l.viejo);
+    d.querySelector('.etiqueta').textContent = info(v).nombre;
+    d.querySelector('.valor span').textContent = l ? mostrar(v, l.valor).toFixed(info(v).dec) : '—';
+    d.querySelector('small').textContent = l ? info(v).unidad : '';
+  }
+  moverMedidor(c.lecturas.dpv, s);
+
+  // Fichas de equipos: también persistentes, para que el ventilador no "salte".
+  const equipos = caja.querySelector('.equipos');
+  const proximos = [];
+  for (const r of s.reles) {
+    let e = c.fichas[r.id];
+    if (!e) {
+      e = c.fichas[r.id] = document.createElement('div');
+      e.innerHTML = `<span class="icono">${iconoDe(r.id)}</span><span class="nom"></span>`;
       equipos.append(e);
-      if (r.proximo) {
-        const li = document.createElement('li');
-        li.innerHTML = '<span></span><b data-cuando></b>';
-        li.children[0].textContent = `${r.nombre}: ${r.proximo.texto}`;
-        li.children[1].dataset.cuando = r.proximo.cuando;
-        li.children[1].textContent = cuentaRegresiva(r.proximo.cuando);
-        proximos.append(li);
-      }
     }
-    caja.append(cab, etapa, lecturas, equipos, proximos);
-    return caja;
-  }));
+    e.className = `equipo eq-${r.id}` + (r.on ? ' on' : '');
+    e.title = motivoMostrado(r.motivo);
+    e.lastChild.textContent = r.nombre + (r.manual_vigente ? ' (manual)' : '');
+    if (AMBIENTE[r.id]) caja.classList.toggle(AMBIENTE[r.id], !!r.on);
+    if (r.proximo) {
+      const li = document.createElement('li');
+      li.innerHTML = '<span></span><b data-cuando></b>';
+      li.children[0].textContent = `${r.nombre}: ${r.proximo.texto}`;
+      li.children[1].dataset.cuando = r.proximo.cuando;
+      li.children[1].textContent = cuentaRegresiva(r.proximo.cuando);
+      proximos.push(li);
+    }
+  }
+  // Luz: prendida = resplandor cálido; apagada = la caja se pone "de noche".
+  // Sin dato del módulo no se marca ninguna de las dos.
+  const luz = s.reles.find(r => r.id === 'luz');
+  caja.classList.toggle('luz-on', luz?.on === true);
+  caja.classList.toggle('luz-off', luz?.on === false);
+  caja.querySelector('.proximos').replaceChildren(...proximos);
+}
+
+// ----------------------------------------------------- medidor de DPV
+// Semicírculo de 0,2 a 2,0 kPa. La franja verde es la zona "ideal": entre el
+// umbral del deshumidificador (prende si el DPV está por debajo) y el del
+// humidificador (prende si está por encima). Los límites salen de las reglas de la
+// sala, así que si cambiás un umbral, la franja se mueve sola.
+const MEDIDOR = { min: 0.2, max: 2.0, cx: 60, cy: 60, r: 48 };
+const fraccion = kpa => Math.min(1, Math.max(0, (kpa - MEDIDOR.min) / (MEDIDOR.max - MEDIDOR.min)));
+// Punto del arco: t=0 es la punta izquierda, t=1 la derecha, pasando por arriba.
+function puntoArco(t) {
+  const { cx, cy, r } = MEDIDOR;
+  return [cx - r * Math.cos(t * Math.PI), cy - r * Math.sin(t * Math.PI)].map(n => n.toFixed(2)).join(' ');
+}
+const arco = (t1, t2) => `M ${puntoArco(t1)} A ${MEDIDOR.r} ${MEDIDOR.r} 0 0 1 ${puntoArco(t2)}`;
+
+function armarMedidor() {
+  const div = document.createElement('div');
+  div.className = 'medidor';
+  div.innerHTML = `<svg viewBox="0 0 120 66" aria-hidden="true">
+      <path class="m-fondo" d="${arco(0, 1)}"/>
+      <path class="m-zona" d=""/>
+      <g class="m-aguja"><path d="M60 60 L60 18"/><circle cx="60" cy="60" r="4"/></g>
+    </svg><span class="m-texto"></span>`;
+  return div;
+}
+
+function zonaDpv(s) {
+  const zona = {};
+  for (const r of s.reles) {
+    const g = r.regla;
+    if (g?.tipo !== 'umbral' || g.variable !== 'dpv') continue;
+    if (g.encender_si === 'menor') zona.min = g.valor;   // deshumidificador
+    if (g.encender_si === 'mayor') zona.max = g.valor;   // humidificador
+  }
+  return zona;
+}
+
+function moverMedidor(tile, s) {
+  const m = tile.querySelector('.medidor');
+  const l = s.lecturas.dpv;
+  const { min, max } = zonaDpv(s);
+  const hayZona = min != null && max != null && min < max;
+  m.querySelector('.m-zona').setAttribute('d', hayZona ? arco(fraccion(min), fraccion(max)) : '');
+  const f = (n, dec = unidadDpv === 'hPa' ? 0 : 1) => mostrar('dpv', n).toFixed(dec).replace('.', ',');
+  m.querySelector('.m-texto').textContent = hayZona ? `${f(min)} – ${f(max)}` : '';
+  m.title = hayZona ? `Zona ideal: ${f(min, 2)} a ${f(max, 2)} ${unidadDpv}` : 'Sin umbrales de DPV configurados';
+  // La aguja gira de -90° (izquierda) a +90° (derecha); CSS anima el giro.
+  const aguja = m.querySelector('.m-aguja');
+  aguja.style.transform = `rotate(${l ? -90 + fraccion(l.valor) * 180 : -90}deg)`;
+  const fuera = l && hayZona && (l.valor < min || l.valor > max);
+  tile.classList.toggle('fuera', !!fuera);
+  m.classList.toggle('sin-dato', !l);
 }
 
 // Las cuentas regresivas se actualizan cada segundo sin pedir nada al servidor.

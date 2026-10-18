@@ -64,6 +64,12 @@ Están escritas en C++ "puro", sin nada de Arduino, para poder probarlas en la P
 - **umbral con histéresis** (DPV): el humidificador se prende si el DPV supera 1,2 y recién se apaga cuando baja de 1,1. Esa franja evita que el relé prenda y apague sin parar. El deshumidificador es el espejo (DPV bajo). Si sus umbrales no se pisan, nunca funcionan a la vez; hay un test que lo verifica.
 - **horario** (luz): prendida entre dos horas; puede cruzar la medianoche.
 
+**Equipos con timer externo.** Si la luz (u otro equipo) la maneja su propio timer, en la web se marca "Lo maneja un timer externo" y se carga el mismo horario del timer. Desde ahí:
+
+- El servidor no le manda ese relé al módulo: un relé que no figura en la config queda apagado y libre para otra cosa.
+- El estado (prendida/apagada) y la cuenta regresiva los calcula el servidor con ese horario, sin preguntarle nada al módulo.
+- Ojo: la web muestra lo que *debería* estar haciendo el timer. Si se corta la luz y el timer mecánico se atrasa, la web no se entera. Para saberlo de verdad haría falta un sensor de luz (por ejemplo, un LDR en el módulo).
+
 Decisiones de seguridad que vale la pena notar:
 
 - Si un dato tiene más de 3 minutos, la regla de umbral **apaga**. Sin saber la humedad, no conviene dejar el humidificador prendido.

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from . import db
 from .acceso import COOKIE, DURACION_S, Acceso, crear_token, es_https, ip_cliente
-from .modelos import ETAPAS, TIPOS_BITACORA, ConfigSala, proximo_cambio, regla_adapter
+from .modelos import ETAPAS, TIPOS_BITACORA, ConfigSala, en_horario, proximo_cambio, regla_adapter
 from .servicio import Servicio
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -151,6 +151,17 @@ async def salas():
         for rid, r in config["reles"].items():
             real = estado.reles.get(rid, {}) if estado else {}
             regla = regla_adapter.validate_python(r["regla"])
+            if r.get("externo"):
+                # Lo maneja un timer externo: no hay nada que preguntarle al módulo,
+                # el estado sale del horario que se cargó (el mismo que tiene el timer).
+                reles.append({
+                    "id": rid, **r,
+                    "manual_vigente": False,
+                    "on": en_horario(regla, ahora),
+                    "motivo": f"timer externo: de {regla.encender} a {regla.apagar}",
+                    "proximo": proximo_cambio(regla, ahora),
+                })
+                continue
             manual_vigente = r["modo"] == "manual" and (
                 r["manual_hasta"] == 0 or r["manual_hasta"] > ahora_utc.timestamp())
             reles.append({
@@ -259,6 +270,17 @@ async def automatico(sid: str, rid: str):
 @app.put("/api/salas/{sid}/reles/{rid}/regla")
 async def cambiar_regla(sid: str, rid: str, regla: dict):
     return await _modificar(sid, lambda config: _rele(config, rid).update(regla=regla))
+
+
+class PedidoExterno(BaseModel):
+    externo: bool
+
+
+@app.put("/api/salas/{sid}/reles/{rid}/externo")
+async def cambiar_externo(sid: str, rid: str, pedido: PedidoExterno):
+    """Marca un equipo como manejado por un timer externo (o lo devuelve al módulo)."""
+    return await _modificar(sid, lambda config: _rele(config, rid).update(
+        externo=pedido.externo, modo="auto", manual_hasta=0))
 
 
 class PedidoNombre(BaseModel):

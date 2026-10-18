@@ -318,6 +318,9 @@ label { display: grid; gap: 5px; font-size: .78rem; color: var(--tenue); }
 .rele-controles button { min-height: 38px; border-radius: 10px; background: transparent; color: var(--tenue); font-size: .85rem; }
 .rele-controles button.activo { background: var(--tarjeta); color: var(--sala); box-shadow: var(--sombra); }
 .rele-controles .duracion { grid-column: 1 / -1; min-height: 36px; background: var(--tarjeta); font-size: .82rem; }
+.rele.externo .rele-controles { display: none; }   /* timer externo: no hay nada que manejar */
+.casilla { display: flex; gap: 8px; align-items: flex-start; font-size: .82rem; color: var(--texto); }
+.casilla input { width: auto; min-height: 0; margin-top: 2px; accent-color: var(--sala); }
 .rele-regla { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 10px; }
 .rele-regla summary { cursor: pointer; font-size: .85rem; font-weight: 500; color: var(--tenue); }
 .rele-regla .formulario { margin-top: 10px; }

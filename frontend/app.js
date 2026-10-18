@@ -209,7 +209,7 @@ function actualizarCaja(s, c) {
     }
     e.className = `equipo eq-${r.id}` + (r.on ? ' on' : '');
     e.title = motivoMostrado(r.motivo);
-    e.lastChild.textContent = r.nombre + (r.manual_vigente ? ' (manual)' : '');
+    e.lastChild.textContent = r.nombre + (r.manual_vigente ? ' (manual)' : r.externo ? ' (timer)' : '');
     if (AMBIENTE[r.id]) caja.classList.toggle(AMBIENTE[r.id], !!r.on);
     if (r.proximo) {
       const li = document.createElement('li');
@@ -350,6 +350,9 @@ function pintarReles(s) {
     const estado = t.querySelector('.estado');
     estado.textContent = r.on == null ? 'sin datos' : (r.on ? 'encendido' : 'apagado');
     estado.classList.toggle('on', !!r.on);
+    // Timer externo: sin botones (el módulo no lo maneja) y el estado sale del horario.
+    t.classList.toggle('externo', !!r.externo);
+    t.querySelector('.rele-regla summary').textContent = r.externo ? 'Horario del timer' : 'Regla automática';
     t.querySelector('[data-accion=auto]').classList.toggle('activo', !r.manual_vigente);
     t.querySelector('[data-accion=on]').classList.toggle('activo', r.manual_vigente && r.manual_estado);
     t.querySelector('[data-accion=off]').classList.toggle('activo', r.manual_vigente && !r.manual_estado);
@@ -374,7 +377,7 @@ function crearTarjetaRele(sid, rele) {
       }
     });
   });
-  armarFormularioRegla(t.querySelector('.form-regla'), sid, rele.id, rele.regla);
+  armarFormularioRegla(t.querySelector('.form-regla'), sid, rele.id, rele.regla, rele.externo);
   return t;
 }
 
@@ -400,13 +403,13 @@ const AYUDA = {
   pulsos: 'Los pulsos se cuentan desde la hora "desde". Sin ventana, todo el día desde las 00:00.',
 };
 
-function armarFormularioRegla(form, sid, rid, regla) {
+function armarFormularioRegla(form, sid, rid, regla, externo = false) {
   form.replaceChildren();
   const tipo = crearCampo(form, 'Tipo', 'select', 'ancho');
   for (const [valor, texto] of [['horario', 'Horario'], ['umbral', 'Umbral (sensor)'], ['pulsos', 'Pulsos de tiempo']]) {
     tipo.add(new Option(texto, valor, false, valor === regla.tipo));
   }
-  tipo.addEventListener('change', () => armarFormularioRegla(form, sid, rid, { tipo: tipo.value }));
+  tipo.addEventListener('change', () => armarFormularioRegla(form, sid, rid, { tipo: tipo.value }, externo));
 
   for (const [clave, etiqueta, clase] of CAMPOS[regla.tipo]) {
     let input;
@@ -446,7 +449,19 @@ function armarFormularioRegla(form, sid, rid, regla) {
   if (regla.tipo === 'umbral') {
     form.elements.variable.onchange = () => armarFormularioRegla(form, sid, rid, {
       tipo: 'umbral', variable: form.elements.variable.value, encender_si: form.elements.encender_si.value,
-    });
+    }, externo);
+  }
+
+  // Solo un horario se puede "copiar" de un timer externo.
+  let casilla = null;
+  if (regla.tipo === 'horario') {
+    const label = document.createElement('label');
+    label.className = 'casilla ancho';
+    casilla = document.createElement('input');
+    casilla.type = 'checkbox';
+    casilla.checked = externo;
+    label.append(casilla, 'Lo maneja un timer externo (el módulo no lo controla; la web muestra el estado según este horario)');
+    form.append(label);
   }
 
   const ayuda = document.createElement('p');
@@ -471,7 +486,14 @@ function armarFormularioRegla(form, sid, rid, regla) {
       for (const k of ['valor', 'histeresis']) if (k in nueva) nueva[k] = +(nueva[k] / factorDpv()).toFixed(4);
     }
     try {
+      const conTimer = !!casilla?.checked;
+      const antes = !!sala()?.reles.find(r => r.id === rid)?.externo;
+      // El servidor exige horario para el timer externo, así que el orden importa:
+      // al sacarlo, primero se saca la marca y después se cambia la regla (que
+      // puede dejar de ser horario); al ponerlo, primero la regla y después la marca.
+      if (antes && !conTimer) await api('PUT', `/api/salas/${sid}/reles/${rid}/externo`, { externo: false });
       await api('PUT', `/api/salas/${sid}/reles/${rid}/regla`, nueva);
+      if (!antes && conTimer) await api('PUT', `/api/salas/${sid}/reles/${rid}/externo`, { externo: true });
       error.textContent = '';
       form.closest('details').open = false;
       await actualizar();

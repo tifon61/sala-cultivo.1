@@ -53,7 +53,16 @@ class ConfigRele(BaseModel):
     modo: Literal["auto", "manual"] = "auto"
     manual_estado: bool = False
     manual_hasta: int = 0          # epoch UTC en segundos; 0 = sin límite
+    # Equipo manejado por un timer externo (p. ej. la luz con su propio timer):
+    # el módulo no lo controla y la web calcula su estado a partir del horario.
+    externo: bool = False
     regla: Regla
+
+    @model_validator(mode="after")
+    def _externo_con_horario(self):
+        if self.externo and not isinstance(self.regla, ReglaHorario):
+            raise ValueError("un equipo con timer externo necesita una regla de horario")
+        return self
 
 
 class ConfigSala(BaseModel):
@@ -86,14 +95,19 @@ def _en_ventana(minuto_del_dia: float, desde: int, hasta: int) -> bool:
     return minuto_del_dia >= desde or minuto_del_dia < hasta
 
 
+def en_horario(regla: ReglaHorario, ahora: datetime) -> bool:
+    """¿Está prendido ahora según el horario? (para equipos con timer externo)"""
+    minuto = ahora.hour * 60 + ahora.minute + ahora.second / 60
+    return _en_ventana(minuto, _minutos(regla.encender), _minutos(regla.apagar))
+
+
 def proximo_cambio(regla, ahora: datetime) -> Optional[dict]:
     """Devuelve {"texto", "cuando"} con el próximo evento previsible, o None."""
     if isinstance(regla, ReglaHorario):
         e, a = _minutos(regla.encender), _minutos(regla.apagar)
         if e == a:
             return None
-        minuto = ahora.hour * 60 + ahora.minute + ahora.second / 60
-        prendida = _en_ventana(minuto, e, a)
+        prendida = en_horario(regla, ahora)
         objetivo = _a_las(ahora, a if prendida else e)
         if objetivo <= ahora:
             objetivo += timedelta(days=1)

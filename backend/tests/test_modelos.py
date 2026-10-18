@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
-from app.modelos import ConfigSala, proximo_cambio, regla_adapter
+from app.modelos import ConfigSala, en_horario, proximo_cambio, regla_adapter
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
 
@@ -83,3 +83,18 @@ def test_riego_sin_ventana_cuenta_desde_medianoche():
 
 def test_umbral_no_tiene_proximo():
     assert proximo_cambio(regla(tipo="umbral", variable="dpv", encender_si="mayor", valor=1.2), a_las(9, 0)) is None
+
+
+def test_timer_externo_necesita_horario():
+    pulsos = {"tipo": "pulsos", "encendido_s": 20, "cada_min": 60}
+    with pytest.raises(ValidationError):
+        ConfigSala.model_validate({"nombre": "S", "reles": {"luz": {"nombre": "Luz", "externo": True, "regla": pulsos}}})
+    horario = {"tipo": "horario", "encender": "18:00", "apagar": "06:00"}
+    ok = ConfigSala.model_validate({"nombre": "S", "reles": {"luz": {"nombre": "Luz", "externo": True, "regla": horario}}})
+    assert ok.reles["luz"].externo
+
+
+def test_en_horario_cruza_medianoche():
+    r = regla(tipo="horario", encender="18:00", apagar="06:00")
+    assert en_horario(r, a_las(23, 0)) and en_horario(r, a_las(5, 59))
+    assert not en_horario(r, a_las(6, 0)) and not en_horario(r, a_las(12, 0))

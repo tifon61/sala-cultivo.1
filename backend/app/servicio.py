@@ -89,7 +89,11 @@ class Servicio:
         fila = await db.obtener_sala(self.pool, sala)
         if fila is None or self._cliente is None:
             return
-        mensaje = dict(fila["config"], version=fila["version"])
+        config = fila["config"]
+        # Los equipos con timer externo no se le mandan al módulo: un relé que no
+        # figura en la config queda apagado (y libre para otra cosa).
+        reles = {rid: r for rid, r in config["reles"].items() if not r.get("externo")}
+        mensaje = dict(config, reles=reles, version=fila["version"])
         await self._cliente.publish(f"cultivo/{sala}/config", json.dumps(mensaje), qos=1, retain=True)
         log.info("Config de %s publicada (versión %d)", sala, fila["version"])
 
